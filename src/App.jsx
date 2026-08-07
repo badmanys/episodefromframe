@@ -331,17 +331,19 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#0b0f17] font-sans">
 
-      {/* ── Fixed top banner – always visible ──────────────────────────────── */}
-      <TopBanner
-        currentScreen={currentScreen}
-        totalScore={totalScore}
-        gameMode={gameMode}
-        currentRound={currentRound}
-        onGoHome={goHome}
-      />
+      {/* ── Fixed top banner (Game screen only) ────────────────────────────── */}
+      {currentScreen === 'game' && (
+        <TopBanner
+          currentScreen={currentScreen}
+          totalScore={totalScore}
+          gameMode={gameMode}
+          currentRound={currentRound}
+          onGoHome={goHome}
+        />
+      )}
 
-      {/* ── Page content – offset 56px for the banner ───────────────────────── */}
-      <div className="pt-14">
+      {/* ── Page content ──────────────────────────────────────────────────────── */}
+      <div className={currentScreen === 'game' ? 'pt-14' : ''}>
 
         {/* ══ Homepage ═══════════════════════════════════════════════════════ */}
         {currentScreen === 'home' && (
