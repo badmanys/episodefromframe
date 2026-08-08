@@ -1,7 +1,37 @@
 import { useState, useCallback, useEffect, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Copy, Check, Users, Hash, Play, Clock, Share2, LogOut } from 'lucide-react'
+import { Copy, Check, Users, Hash, Play, Clock, Share2, LogOut, Shuffle, Star, Zap, Orbit, Flame, Droplet, Crosshair, Swords, CheckCircle2 } from 'lucide-react'
 import { playClickSound } from '../lib/audio.js'
+
+// Known accents for popular series
+const ANIME_ACCENTS = {
+  jojo:   { from: '#b91c1c', to: '#ef4444', shadow: 'rgba(220,38,38,0.35)',  icon: Star },
+  naruto: { from: '#ea580c', to: '#f97316', shadow: 'rgba(234,88,12,0.35)',  icon: Zap },
+  hxh:    { from: '#c2410c', to: '#fb923c', shadow: 'rgba(249,115,22,0.35)', icon: Crosshair },
+  aot:    { from: '#991b1b', to: '#dc2626', shadow: 'rgba(220,38,38,0.35)',  icon: Swords },
+  bleach: { from: '#b91c1c', to: '#f87171', shadow: 'rgba(220,38,38,0.35)',  icon: Droplet },
+  fma:    { from: '#b45309', to: '#fbbf24', shadow: 'rgba(245,158,11,0.35)', icon: Flame },
+  dbs:    { from: '#c2410c', to: '#fcd34d', shadow: 'rgba(245,158,11,0.35)', icon: Orbit },
+}
+
+const DYNAMIC_PALETTE = [
+  { from: '#6d28d9', to: '#a78bfa', shadow: 'rgba(139,92,246,0.35)', icon: Star },
+  { from: '#0e7490', to: '#22d3ee', shadow: 'rgba(6,182,212,0.35)',  icon: Zap },
+  { from: '#065f46', to: '#34d399', shadow: 'rgba(16,185,129,0.35)', icon: Orbit },
+  { from: '#92400e', to: '#fbbf24', shadow: 'rgba(251,191,36,0.35)', icon: Flame },
+  { from: '#1e3a8a', to: '#60a5fa', shadow: 'rgba(96,165,250,0.35)', icon: Droplet },
+  { from: '#831843', to: '#f472b6', shadow: 'rgba(244,114,182,0.35)',icon: Crosshair },
+  { from: '#134e4a', to: '#2dd4bf', shadow: 'rgba(45,212,191,0.35)', icon: Swords },
+]
+
+function getAccent(animeId) {
+  if (ANIME_ACCENTS[animeId]) return ANIME_ACCENTS[animeId]
+  let hash = 0
+  for (let i = 0; i < animeId.length; i++) {
+    hash = (hash * 31 + animeId.charCodeAt(i)) >>> 0
+  }
+  return DYNAMIC_PALETTE[hash % DYNAMIC_PALETTE.length]
+}
 
 export default memo(function LobbyScreen({ roomCode, roomData, role, onCancel, onStartEarly, animes = [], onUpdateSettings }) {
   const [copied, setCopied] = useState(false)
@@ -170,33 +200,86 @@ export default memo(function LobbyScreen({ roomCode, roomData, role, onCancel, o
                 
                 {/* Filtr sérií (pouze pro Mix mód) */}
                 {(!roomData?.anime_id || roomData?.anime_id === 'random') && (
-                  <div className="mt-4">
-                    <label className="text-white/60 text-xs font-semibold mb-1.5 flex items-center justify-between">
-                      <span>Filtrovat Anime série</span>
-                      <span className="text-[10px] text-white/40 font-normal">{(roomData?.selected_series || []).length} vybráno (prázdné = všechny)</span>
-                    </label>
-                    <div className="max-h-36 overflow-y-auto bg-black/40 border border-white/10 rounded-lg p-2 space-y-1 custom-scrollbar">
-                      {animes.map(a => {
-                        const isChecked = (roomData?.selected_series || []).includes(a.id);
+                  <div className="mt-6 border-t border-white/10 pt-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="text-white/60 text-xs font-semibold">Filtrovat Anime série</label>
+                      <span className="text-[10px] text-white/40 font-normal">{(roomData?.selected_series || []).length} vybráno</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      {animes.map((anime, i) => {
+                        const isSelected = (roomData?.selected_series || []).includes(anime.id)
+                        const accent = getAccent(anime.id)
+                        const Icon = accent.icon
+
                         return (
-                          <label key={a.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-white/5 rounded cursor-pointer transition-colors">
-                            <input 
-                              type="checkbox" 
-                              checked={isChecked}
-                              onChange={(e) => {
-                                const current = roomData?.selected_series || [];
-                                let next;
-                                if (e.target.checked) next = [...current, a.id];
-                                else next = current.filter(id => id !== a.id);
-                                onUpdateSettings && onUpdateSettings({ selected_series: next });
-                              }}
-                              className="accent-red-500 w-4 h-4 rounded bg-black/50 border-white/20"
+                          <motion.button
+                            key={anime.id}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.04 + i * 0.06, duration: 0.3 }}
+                            whileHover={{ scale: 1.03, y: -2 }}
+                            whileTap={{ scale: 0.97 }}
+                            onClick={() => { 
+                              playClickSound(); 
+                              const current = roomData?.selected_series || [];
+                              let next;
+                              if (!isSelected) next = [...current, anime.id];
+                              else next = current.filter(id => id !== anime.id);
+                              onUpdateSettings && onUpdateSettings({ selected_series: next });
+                            }}
+                            className={`relative rounded-xl border p-3.5 text-left group transition-colors duration-200 ${isSelected ? 'bg-red-950/40 border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.3)]' : 'bg-white/[0.04] border-white/8 hover:border-white/20'}`}
+                            style={{ willChange: 'transform' }}
+                          >
+                            <div 
+                              className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none rounded-xl"
+                              style={{ boxShadow: !isSelected ? `0 4px 20px ${accent.shadow}` : 'none', willChange: 'opacity' }} 
                             />
-                            <span className="text-sm text-white/90">{a.title}</span>
-                          </label>
+                            <div className="w-8 h-8 rounded-lg mb-2 flex items-center justify-center shadow-lg" style={{ background: `linear-gradient(135deg, ${accent.from}, ${accent.to})` }}>
+                              <Icon className="w-4 h-4 text-white" strokeWidth={2} />
+                            </div>
+                            <p className={`font-bold text-sm leading-tight transition-colors ${isSelected ? 'text-white' : 'text-white/80 group-hover:text-white'}`}>{anime.title}</p>
+                            
+                            {isSelected && (
+                              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute top-2.5 right-2.5">
+                                <CheckCircle2 className="w-5 h-5 text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]" />
+                              </motion.div>
+                            )}
+                            
+                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                              style={{ background: `linear-gradient(135deg, ${accent.from}15, ${accent.to}08)` }} />
+                          </motion.button>
                         )
                       })}
                     </div>
+
+                    <motion.button
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.28 }}
+                      whileHover={{ scale: 1.02, y: -1 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => { playClickSound(); onUpdateSettings && onUpdateSettings({ selected_series: [] }); }}
+                      className={`w-full relative rounded-xl border p-4 flex items-center gap-3 group transition-colors duration-200 ${(roomData?.selected_series || []).length === 0 ? 'bg-red-950/40 border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.3)]' : 'bg-red-950/20 border-red-500/30 hover:border-red-500/50'}`}
+                      style={{ willChange: 'transform' }}
+                    >
+                      <div 
+                        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none rounded-xl"
+                        style={{ boxShadow: (roomData?.selected_series || []).length !== 0 ? '0 4px 24px rgba(220,38,38,0.2)' : 'none', willChange: 'opacity' }} 
+                      />
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center shadow-lg bg-gradient-to-br from-red-600 to-orange-500">
+                        <Shuffle className="w-5 h-5 text-white" strokeWidth={2} />
+                      </div>
+                      <div className="text-left flex-1">
+                        <p className={`font-black leading-tight transition-colors ${(roomData?.selected_series || []).length === 0 ? 'text-white' : 'text-white/90 group-hover:text-white'}`}>Náhodný Mix</p>
+                        <p className={`text-xs mt-0.5 transition-colors ${(roomData?.selected_series || []).length === 0 ? 'text-red-200' : 'text-red-200/50 group-hover:text-red-200/70'}`}>Všechna dostupná anime</p>
+                      </div>
+                      {(roomData?.selected_series || []).length === 0 && (
+                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute right-4">
+                          <CheckCircle2 className="w-5 h-5 text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]" />
+                        </motion.div>
+                      )}
+                    </motion.button>
                   </div>
                 )}
               </div>
