@@ -248,6 +248,12 @@ export default function App() {
       nextRoundLocal()
     }
 
+    // 1.5. End game if host marked it as finished in Supabase
+    if (lobbyRoomData.status === 'finished' && !classicFinished) {
+      setWaitingForOpponent(false)
+      setClassicFinished(true)
+    }
+
     // 2. Only Host evaluates and updates Supabase state when all guess
     if (playerRole === 'host' && allGuessed && lobbyRoomData.status === 'playing') {
       const results = evaluateMultiplayerRound(players, answer, isRandom)
