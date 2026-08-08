@@ -322,6 +322,26 @@ export default function App() {
     setCurrentScreen('game')
   }, [frames])
 
+  // ── Multiplayer: create room ───────────────────────────────────────────────
+  const handleCreateRoom = useCallback(async (animeId, options) => {
+    setIsJoiningRoom(true)
+    const { data, role, error: err } = await createRoom(frames, animeId, options, nickname)
+    setIsJoiningRoom(false)
+    
+    if (err || !data) return typeof err === 'string' ? err : 'Nepodařilo se vytvořit místnost. Zkontroluj Supabase konfiguraci.'
+    
+    console.log('[1v1] Room created:', data)
+    
+    setLobbyRoomCode(data.code)
+    setLobbyRoomData(data)
+    setPlayerRole(role)
+    setCurrentScreen('lobby')
+    
+    console.log('[1v1] Current state updated to: lobby')
+    
+    return null
+  }, [frames, nickname])
+
   // ── Mode button click on Homepage ─────────────────────────────────────────
   const handleModeClick = useCallback((modeId) => {
     const action = async () => {
@@ -434,26 +454,6 @@ export default function App() {
       setSurrendered(true)
     }
   }, [roundOver, gameOver, gameMode, lobbyRoomCode, playerRole])
-
-  // ── Multiplayer: create room ───────────────────────────────────────────────
-  const handleCreateRoom = useCallback(async (animeId, options) => {
-    setIsJoiningRoom(true)
-    const { data, role, error: err } = await createRoom(frames, animeId, options, nickname)
-    setIsJoiningRoom(false)
-    
-    if (err || !data) return typeof err === 'string' ? err : 'Nepodařilo se vytvořit místnost. Zkontroluj Supabase konfiguraci.'
-    
-    console.log('[1v1] Room created:', data)
-    
-    setLobbyRoomCode(data.code)
-    setLobbyRoomData(data)
-    setPlayerRole(role)
-    setCurrentScreen('lobby')
-    
-    console.log('[1v1] Current state updated to: lobby')
-    
-    return null
-  }, [frames, nickname])
 
   // ── Multiplayer: join room ─────────────────────────────────────────────────
   const handleJoinRoom = useCallback(async (roomCode) => {
