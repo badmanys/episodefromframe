@@ -13,7 +13,7 @@ export async function createRoom(frames, animeId) {
   const animeFrames = isRandom ? frames : frames.filter(f => f.animeId === animeId)
   if (animeFrames.length === 0) return { data: null, error: `No frames found for anime: ${animeId}` }
   const shuffled = [...animeFrames].sort(() => Math.random() - 0.5)
-  const selectedFrames = shuffled.slice(0, Math.min(5, shuffled.length))
+  const selectedFrames = shuffled.slice(0, Math.min(4, shuffled.length))
   const code = generateRoomCode()
   const dbAnimeId = isRandom ? 'random' : animeId
   const { data, error } = await supabase
