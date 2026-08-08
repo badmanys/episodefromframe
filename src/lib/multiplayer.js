@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js'
+import { obfuscateFrame } from './security.js'
 
 export function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -7,67 +8,124 @@ export function generateRoomCode() {
   return code
 }
 
-export async function createRoom(frames, animeId) {
+export async function createRoom(frames, animeId, settings = {}, nickname = 'Host') {
   if (!supabase) return { data: null, error: 'Supabase not configured' }
   const isRandom = animeId === 'random' || animeId === null
   const animeFrames = isRandom ? frames : frames.filter(f => f.animeId === animeId)
   if (animeFrames.length === 0) return { data: null, error: `No frames found for anime: ${animeId}` }
+  
+  const rounds = settings.rounds || 5
+  const maxPlayers = settings.maxPlayers || 2
+  const timeLimit = settings.timeLimit || 0
+
   const shuffled = [...animeFrames].sort(() => Math.random() - 0.5)
-  const selectedFrames = shuffled.slice(0, Math.min(4, shuffled.length))
+  const selectedFrames = shuffled.slice(0, Math.min(rounds, shuffled.length)).map(obfuscateFrame)
   const code = generateRoomCode()
   const dbAnimeId = isRandom ? 'random' : animeId
+  
   const { data, error } = await supabase
     .from('rooms')
     .insert([{ 
       code, 
       anime_id: dbAnimeId, 
       frames: selectedFrames, 
-      player1_score: 0, 
-      player2_score: 0, 
+      max_players: maxPlayers,
+      total_rounds: rounds,
+      time_limit: timeLimit,
+      players: [{ role: 'player1', name: nickname, score: 0, guess: null }],
       current_round: 0, 
-      status: 'waiting',
-      player1_guess: null,
-      player2_guess: null
+      status: 'waiting'
     }])
     .select().single()
-  if (error) { console.error('[Multiplayer] createRoom error:', error); return { data: null, error: error.message || 'Failed to create room' } }
+  if (error) { 
+    if (import.meta.env.DEV) console.error('[Multiplayer] createRoom error:', error)
+    return { data: null, error: error.message || 'Failed to create room' } 
+  }
   return { data, error: null }
 }
 
-export async function joinRoom(roomCode) {
+export async function joinRoom(roomCode, nickname = 'Guest') {
   if (!supabase) return { data: null, error: 'Supabase not configured' }
   const { data: room, error: fetchError } = await supabase.from('rooms').select('*').eq('code', roomCode.toUpperCase()).single()
+  
   if (fetchError || !room) return { data: null, error: 'Místnost nebyla nalezena. Zkontroluj kód.' }
-  if (room.status === 'playing') return { data: null, error: 'Místnost je plná – hra již probíhá.' }
-  if (room.status === 'finished') return { data: null, error: 'Tato hra již skončila.' }
+  if (room.status === 'playing' || room.status === 'finished') return { data: null, error: 'V této místnosti již hra probíhá nebo skončila.' }
+  
+  const currentPlayers = room.players || []
+  if (currentPlayers.length >= room.max_players) {
+    return { data: null, error: 'Místnost je již plná.' }
+  }
+
+  if (currentPlayers.some(p => p.name.toLowerCase() === nickname.toLowerCase())) {
+    return { data: null, error: 'Tato přezdívka je v místnosti již zabraná. Zvol si prosím jinou.' }
+  }
+
+  // Find next role (e.g. player2, player3)
+  const slot = currentPlayers.length + 1
+  const role = `player${slot}`
+  
+  const newPlayer = { role, name: nickname, score: 0, guess: null }
+  const updatedPlayers = [...currentPlayers, newPlayer]
+
   const { data, error: updateError } = await supabase
-    .from('rooms').update({ status: 'playing', current_round: 1 }).eq('code', roomCode.toUpperCase()).select().single()
-  if (updateError) { console.error('[Multiplayer] joinRoom error:', updateError); return { data: null, error: updateError.message || 'Připojení selhalo.' } }
-  return { data, error: null }
+    .from('rooms').update({ players: updatedPlayers }).eq('code', roomCode.toUpperCase()).select().single()
+    
+  if (updateError) { 
+    if (import.meta.env.DEV) console.error('[Multiplayer] joinRoom error:', updateError)
+    return { data: null, error: updateError.message || 'Připojení selhalo.' } 
+  }
+  
+  return { data, role, error: null }
 }
 
-export function subscribeToRoom(roomCode, callback) {
+export function subscribeToRoom(roomCode, nickname, callback, onPlayerDisconnect) {
   if (!supabase) { console.warn('[Multiplayer] Supabase not configured'); return null }
-  if (!roomCode) return null
+  if (!roomCode || !nickname) return null
   try {
     const channel = supabase
-      .channel(`room:${roomCode}`)
+      .channel(`room:${roomCode}`, {
+        config: {
+          presence: { key: nickname },
+        },
+      })
+      
+    channel
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `code=eq.${roomCode.toUpperCase()}` }, (payload) => { if (payload.new) callback(payload.new) })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') console.log(`[Multiplayer] Subscribed to room ${roomCode}`)
-        if (status === 'CHANNEL_ERROR') console.error(`[Multiplayer] Realtime error for room ${roomCode}`)
+      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        if (leftPresences.length > 0) {
+          const leftName = leftPresences[0].name || key
+          onPlayerDisconnect(leftName)
+        }
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ name: nickname, online_at: new Date().toISOString() })
+          if (import.meta.env.DEV) console.log(`[Multiplayer] Subscribed & Tracked presence for ${nickname} in room ${roomCode}`)
+        }
+        if (import.meta.env.DEV) {
+          if (status === 'CHANNEL_ERROR') console.error(`[Multiplayer] Realtime error for room ${roomCode}`)
+        }
       })
     return channel
   } catch (err) {
-    console.error('[Multiplayer] subscribeToRoom exception:', err)
+    if (import.meta.env.DEV) console.error('[Multiplayer] subscribeToRoom exception:', err)
     return null
   }
+}
+
+export async function leaveRoom(roomCode) {
+  if (!supabase) return { data: null, error: 'Supabase not configured' }
+  const { data, error } = await supabase.from('rooms').update({ status: 'closed' }).eq('code', roomCode.toUpperCase()).select().single()
+  return { data, error: error ? error.message : null }
 }
 
 export async function updateRoomState(roomCode, update) {
   if (!supabase) return { data: null, error: 'Supabase not configured' }
   const { data, error } = await supabase.from('rooms').update(update).eq('code', roomCode.toUpperCase()).select().single()
-  if (error) { console.error('[Multiplayer] updateRoomState error:', error); return { data: null, error: error.message } }
+  if (error) { 
+    if (import.meta.env.DEV) console.error('[Multiplayer] updateRoomState error:', error)
+    return { data: null, error: error.message } 
+  }
   return { data, error: null }
 }
 
@@ -80,45 +138,56 @@ export async function fetchRoom(roomCode) {
 
 export async function submitGuess(roomCode, role, guessData) {
   if (!supabase) return { data: null, error: 'Supabase not configured' }
-  const field = role === 'host' ? 'player1_guess' : 'player2_guess'
-  const { data, error } = await supabase.from('rooms').update({ [field]: guessData }).eq('code', roomCode.toUpperCase()).select().single()
-  if (error) { console.error('[Multiplayer] submitGuess error:', error); return { data: null, error: error.message } }
+  
+  // First fetch the room to get current players array
+  const { data: room, error: fetchError } = await supabase.from('rooms').select('players').eq('code', roomCode.toUpperCase()).single()
+  if (fetchError) return { data: null, error: fetchError.message }
+  
+  const updatedPlayers = (room.players || []).map(p => 
+    p.role === role ? { ...p, guess: guessData } : p
+  )
+  
+  const { data, error } = await supabase.from('rooms').update({ players: updatedPlayers }).eq('code', roomCode.toUpperCase()).select().single()
+  if (error) { 
+    if (import.meta.env.DEV) console.error('[Multiplayer] submitGuess error:', error)
+    return { data: null, error: error.message } 
+  }
   return { data, error: null }
 }
 
-// ── Striktní bodovací logika pro 1v1 ───────────────────────────────────────
+// ── Bodovací logika pro 2-4 hráče ─────────────────────────────────────────
 // Priorita: Anime -> Part -> Epizoda
-export function evaluateMultiplayerRound(guess1, guess2, answer, isRandom) {
+export function evaluateMultiplayerRound(players, answer, isRandom) {
   const evaluatePlayer = (guess) => {
-    if (!guess) return { valid: false, partCorrect: false, episodeDiff: Infinity }
-    
-    // Krok A: Zcela chybný, pokud v Random netrefí anime
-    if (isRandom && guess.animeId !== answer.animeId) {
-      return { valid: false, partCorrect: false, episodeDiff: Infinity }
-    }
+    if (!guess || guess.surrendered) return { valid: false, episodeDiff: Infinity }
+    if (isRandom && guess.animeId !== answer.animeId) return { valid: false, episodeDiff: Infinity }
     
     const partCorrect = Number(guess.part) === Number(answer.part)
-    // Krok B: Pokud netrefí Part, chyba. (Bereme to jako invalid pro výhru, 
-    // nebo s obrovskou penalizací. Pro naše účely part musí být správně)
     const valid = partCorrect
     const episodeDiff = Math.abs(Number(guess.episode) - Number(answer.episode))
     
-    return { valid, partCorrect, episodeDiff }
+    return { valid, episodeDiff }
   }
 
-  const p1 = evaluatePlayer(guess1)
-  const p2 = evaluatePlayer(guess2)
+  let bestDiff = Infinity
+  const results = {}
+  
+  for (const p of players) {
+    if (p.guess) {
+      const res = evaluatePlayer(p.guess)
+      results[p.role] = res
+      if (res.valid && res.episodeDiff < bestDiff) {
+        bestDiff = res.episodeDiff
+      }
+    }
+  }
 
-  // Pokud žádný netrefil Part (nebo Anime), nikdo nevyhrává (vrátíme 'draw' nebo 'none')
-  if (!p1.valid && !p2.valid) return 'draw'
-  
-  if (p1.valid && !p2.valid) return 'host'
-  if (!p1.valid && p2.valid) return 'guest'
-  
-  // Oba trefili Anime i Part, rozhoduje odchylka epizody (Krok C)
-  if (p1.episodeDiff < p2.episodeDiff) return 'host'
-  if (p2.episodeDiff < p1.episodeDiff) return 'guest'
-  
-  // Pokud je rozdíl stejný, je to remíza
-  return 'draw'
+  const winners = []
+  for (const [role, res] of Object.entries(results)) {
+    if (res.valid && res.episodeDiff === bestDiff) {
+      winners.push(role)
+    }
+  }
+
+  return winners // pole rolí, např. ['player1'] nebo ['player1', 'player3']
 }

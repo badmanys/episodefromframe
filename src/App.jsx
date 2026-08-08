@@ -9,6 +9,7 @@ import {
   getUniqueAnimes,
   pickRandomFrame,
   compareGuess,
+  getDailyFrame,
 } from './lib/frames.js'
 import { createRoom, joinRoom, updateRoomState, submitGuess, evaluateMultiplayerRound, subscribeToRoom, fetchRoom } from './lib/multiplayer.js'
 import Homepage         from './components/Homepage.jsx'
@@ -17,6 +18,8 @@ import LobbyScreen      from './components/LobbyScreen.jsx'
 import FrameViewer      from './components/FrameViewer.jsx'
 import GuessInput       from './components/GuessInput.jsx'
 import GuessHistory     from './components/GuessHistory.jsx'
+import WikiModal        from './components/WikiModal.jsx'
+import DailySidePanel   from './components/DailySidePanel.jsx'
 import { supabase }     from './lib/supabase.js'
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -86,6 +89,7 @@ export default function App() {
   const [selectedAnimeId, setSelectedAnimeId] = useState(null)   // null = random
   const [isRandom,        setIsRandom]        = useState(false)  // true = random anime mode
   const [showAnimeModal,  setShowAnimeModal]  = useState(false)  // anime-pick modal
+  const [showWiki,        setShowWiki]        = useState(false)  // wiki modal
   const [animeModalAction,setAnimeModalAction]= useState('classic') // 'classic' | 'multiplayer'
   const [isJoiningRoom,   setIsJoiningRoom]   = useState(false)
 
@@ -224,11 +228,13 @@ export default function App() {
 
   // ── Mode button click on Homepage ─────────────────────────────────────────
   const handleModeClick = useCallback((modeId) => {
-    if (modeId === 'classic' || modeId === 'multiplayer') {
+    if (modeId === 'daily') {
+      startGame('daily')
+    } else if (modeId === 'classic' || modeId === 'multiplayer') {
       setAnimeModalAction(modeId)
       setShowAnimeModal(true)
     }
-  }, [])
+  }, [startGame])
 
   // ── Anime selection from modal ─────────────────────────────────────────────
   const handleAnimeSelect = useCallback(async (animeId) => {
@@ -261,7 +267,14 @@ export default function App() {
     setSelectedAnimeId(animeId)
     setMultiplayerFrames(pFrames)
     
-    const firstFrame = pFrames.length > 0 ? pFrames[0] : pickRandomFrame(frames, animeId)
+    let firstFrame = null;
+    if (mode === 'daily') {
+      const today = new Date().toISOString().split('T')[0]
+      firstFrame = getDailyFrame(frames, today)
+    } else {
+      firstFrame = pFrames.length > 0 ? pFrames[0] : pickRandomFrame(frames, animeId)
+    }
+
     if (!firstFrame) {
       setError('Omlouváme se, nenašli jsme žádné snímky pro hru.')
       return
@@ -285,7 +298,7 @@ export default function App() {
     const next = currentRound + 1
     const maxRounds = gameMode === 'multiplayer' ? MULTIPLAYER_ROUNDS : CLASSIC_ROUNDS
 
-    if (next > maxRounds) { setClassicFinished(true); return }
+    if (next > maxRounds || gameMode === 'daily') { setClassicFinished(true); return }
     setCurrentRound(next)
     
     if (multiplayerFrames.length > 0) {
@@ -473,7 +486,7 @@ export default function App() {
         {/* ══ Homepage ══════════════════════════════════════════════════════ */}
         {currentScreen === 'home' && (
           <>
-            <Homepage onStart={handleModeClick} onCreate={() => handleModeClick('multiplayer')} onJoin={handleJoinRoom} />
+            <Homepage onStart={handleModeClick} onCreate={() => handleModeClick('multiplayer')} onJoin={handleJoinRoom} onRequestWiki={() => setShowWiki(true)} />
             {showAnimeModal && (
               <AnimeSelectModal animes={animes} onSelect={handleAnimeSelect} onClose={() => setShowAnimeModal(false)} />
             )}
@@ -613,6 +626,8 @@ export default function App() {
                 <motion.div initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.18 }} className="flex gap-3 justify-center mb-6">
                   {gameMode === 'multiplayer' && playerRole === 'guest' ? (
                      <p className="text-sm text-white/40">Čekání na hostitele...</p>
+                  ) : gameMode === 'daily' ? (
+                     <p className="text-sm text-white/40">Zítra tě čeká nová výzva!</p>
                   ) : (
                     currentRound < (gameMode === 'multiplayer' ? MULTIPLAYER_ROUNDS : CLASSIC_ROUNDS)
                       ? <motion.button onClick={handleNextRoundButton} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="btn-primary flex items-center gap-2" id="btn-next-round">Další kolo <ChevronRight className="w-4 h-4" /></motion.button>
@@ -629,6 +644,19 @@ export default function App() {
               )}
             </div>
           </div>
+        )}
+
+        {/* ── Wiki & Daily Challenge Panels ── */}
+        <WikiModal 
+          isOpen={showWiki} 
+          onClose={() => setShowWiki(false)} 
+        />
+
+        {gameMode === 'daily' && guesses.length > 0 && currentScreen === 'game' && (
+          <DailySidePanel 
+            result={guesses[0]} 
+            answer={answer} 
+          />
         )}
       </div>
     </div>

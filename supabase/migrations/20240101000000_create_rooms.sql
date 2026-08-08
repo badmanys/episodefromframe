@@ -8,11 +8,11 @@ CREATE TABLE rooms (
   status text NOT NULL DEFAULT 'waiting',
   anime_id text,
   frames jsonb NOT NULL,
-  player1_score integer DEFAULT 0,
-  player2_score integer DEFAULT 0,
-  player1_guess jsonb,
-  player2_guess jsonb,
+  players jsonb DEFAULT '[]'::jsonb,
+  max_players integer DEFAULT 2,
+  total_rounds integer DEFAULT 5,
   current_round integer DEFAULT 0,
+  time_limit integer DEFAULT 0,
   created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

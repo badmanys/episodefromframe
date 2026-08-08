@@ -16,7 +16,7 @@ export const supabase = isConfigured
   ? createClient(supabaseUrl, supabaseAnonKey, { realtime: { params: { eventsPerSecond: 10 } } })
   : null
 
-if (!supabase) {
+if (!supabase && import.meta.env.DEV) {
   console.warn(
     '[Supabase] Not configured – multiplayer features disabled.\n' +
     'Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env, then run the SQL migration.'

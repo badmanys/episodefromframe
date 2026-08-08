@@ -9,7 +9,7 @@
 
   html, body, #root {
     min-height: 100vh;
-    background-color: #0b0f17;
+    background-color: #090a0f;
     color: white;
     font-family: 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -32,37 +32,93 @@
   }
 
   select option {
-    background-color: #1e293b;
+    background-color: #0d0f16;
     color: white;
   }
 }
 
 @layer components {
+  /* Cinematic Grain Effect */
+  .bg-film-grain {
+    width: 300vw;
+    height: 300vh;
+    position: fixed;
+    top: -100vh;
+    left: -100vw;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.25;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    animation: grain 8s steps(10) infinite;
+  }
+  @keyframes grain {
+    0%, 100% { transform: translate(0, 0); }
+    10% { transform: translate(-5%, -10%); }
+    20% { transform: translate(-15%, 5%); }
+    30% { transform: translate(7%, -25%); }
+    40% { transform: translate(-5%, 25%); }
+    50% { transform: translate(-15%, 10%); }
+    60% { transform: translate(15%, 0%); }
+    70% { transform: translate(0%, 15%); }
+    80% { transform: translate(3%, 35%); }
+    90% { transform: translate(-10%, 10%); }
+  }
+
+  /* Game Juice VFX */
+  .heartbeat-vignette {
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    box-shadow: inset 0 0 250px rgba(220, 38, 38, 0.4);
+    animation: heartbeat 1s infinite;
+    z-index: 40;
+  }
+  @keyframes heartbeat {
+    0% { opacity: 0.1; }
+    20% { opacity: 0.8; }
+    40% { opacity: 0.1; }
+    60% { opacity: 0.5; }
+    80% { opacity: 0.1; }
+    100% { opacity: 0.1; }
+  }
+
+  .screen-shake {
+    animation: shake 0.35s infinite cubic-bezier(.36,.07,.19,.97) both;
+    transform: translate3d(0, 0, 0);
+  }
+  @keyframes shake {
+    10%, 90% { transform: translate3d(-1px, 0, 0); }
+    20%, 80% { transform: translate3d(2px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+    40%, 60% { transform: translate3d(4px, 0, 0); }
+  }
+
   .glass-card {
-    @apply backdrop-blur-md bg-slate-900/60 border border-white/10 rounded-2xl;
+    @apply backdrop-blur-xl bg-black/60 border border-white/10 rounded-2xl shadow-2xl;
   }
 
   .glass-input {
     @apply w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30
-           focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50
+           focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50
            transition-all duration-200;
   }
 
   .btn-primary {
-    @apply bg-gradient-to-r from-indigo-600 to-violet-600
-           hover:from-indigo-500 hover:to-violet-500
-           active:from-indigo-700 active:to-violet-700
-           text-white font-semibold px-6 py-3 rounded-xl
-           transition-all duration-200
-           shadow-lg shadow-indigo-500/25
-           disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none;
+    @apply w-full py-4 rounded-xl border border-red-500/50 bg-red-600 shadow-[0_0_20px_rgba(220,38,38,0.4)] text-white font-bold transition-transform duration-200 relative overflow-hidden;
+    will-change: transform;
+  }
+  .btn-primary::after {
+    content: '';
+    @apply absolute inset-0 bg-red-500 opacity-0 transition-opacity duration-200 pointer-events-none;
+    box-shadow: inset 0 0 0 100px rgba(255,255,255,0.1), 0 0 30px rgba(220,38,38,0.8);
+    will-change: opacity;
+  }
+  .btn-primary:hover::after {
+    @apply opacity-100;
   }
 
   .btn-ghost {
-    @apply bg-white/5 hover:bg-white/10 active:bg-white/15
-           border border-white/10
-           text-white/60 hover:text-white
-           font-medium px-4 py-2.5 rounded-xl
-           transition-all duration-200;
+    @apply px-5 py-2.5 rounded-xl border border-white/10 text-white/50 text-sm font-semibold transition-colors duration-200 hover:text-white hover:bg-white/5 hover:border-white/20;
+    will-change: transform;
   }
 }

@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, SendHorizontal, Flag, ChevronDown, Check } from 'lucide-react'
 import { getPartsForAnime, getEpisodesForPart, ANIME_NAMES } from '../lib/frames.js'
+import { playClickSound, playSubmitSound } from '../lib/audio.js'
 
 // ── Reusable Custom Dropdown ──────────────────────────────────────────────────
 
@@ -76,7 +77,7 @@ function CustomDropdown({ id, label, value, options, onChange, placeholder = '�
         id={id}
         type="button"
         disabled={disabled}
-        onClick={() => !disabled && setOpen(o => !o)}
+        onClick={() => { if (!disabled) { playClickSound(); setOpen(o => !o); } }}
         whileTap={!disabled ? { scale: 0.985 } : {}}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -125,7 +126,7 @@ function CustomDropdown({ id, label, value, options, onChange, placeholder = '�
                     role="option"
                     aria-selected={isSelected}
                     variants={itemVariants}
-                    onMouseDown={() => handleSelect(opt.value)}
+                    onMouseDown={() => { playClickSound(); handleSelect(opt.value); }}
                     className={`
                       flex items-center justify-between gap-3 px-4 py-2.5 cursor-pointer
                       transition-colors duration-100 group
@@ -161,6 +162,7 @@ export default function GuessInput({
   onSurrender,
   guessCount,
   isRandom = false,   // true → player must also guess the anime
+  usedEpisodes = [],  // array of string keys like "animeId-part-episode"
 }) {
   const [localAnimeId,    setLocalAnimeId]    = useState('')
   const [selectedPart,    setSelectedPart]    = useState('')
@@ -168,6 +170,7 @@ export default function GuessInput({
   const [selectedEpisode, setSelectedEpisode] = useState(null)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
+  const [toast, setToast] = useState('')
   const inputRef = useRef(null)
 
   // The active anime ID: when random mode the player picks it; otherwise it's fixed
@@ -186,13 +189,18 @@ export default function GuessInput({
   )
 
   const filteredEpisodes = useMemo(() => {
-    if (!episodeQuery.trim()) return allEpisodes
-    const q = episodeQuery.trim().toLowerCase()
-    return allEpisodes.filter(ep =>
-      String(ep.episode).startsWith(q) ||
-      ep.title.toLowerCase().includes(q)
-    )
-  }, [allEpisodes, episodeQuery])
+    const list = episodeQuery.trim() 
+      ? allEpisodes.filter(ep => {
+          const q = episodeQuery.trim().toLowerCase()
+          return String(ep.episode).startsWith(q) || ep.title.toLowerCase().includes(q)
+        })
+      : allEpisodes
+      
+    return list.map(ep => ({
+      ...ep,
+      isUsed: usedEpisodes.includes(`${activeAnimeId}-${selectedPart}-${ep.episode}`)
+    }))
+  }, [allEpisodes, episodeQuery, usedEpisodes, activeAnimeId, selectedPart])
 
   // Dropdown option shapes
   const animeOptions = useMemo(
@@ -229,6 +237,11 @@ export default function GuessInput({
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   const handleSelectEpisode = useCallback((ep) => {
+    if (ep.isUsed) {
+      setToast('Tento díl už jsi tipoval v předchozím kole!')
+      setTimeout(() => setToast(''), 3000)
+      return
+    }
     setSelectedEpisode(ep)
     setEpisodeQuery(`Ep. ${ep.episode} – ${ep.title}`)
     setShowSuggestions(false)
@@ -245,7 +258,13 @@ export default function GuessInput({
       setHighlightedIndex(i => Math.max(i - 1, 0))
     } else if (e.key === 'Enter' && highlightedIndex >= 0) {
       e.preventDefault()
-      handleSelectEpisode(filteredEpisodes[highlightedIndex])
+      const ep = filteredEpisodes[highlightedIndex]
+      if (ep.isUsed) {
+        setToast('Tento díl už jsi tipoval v předchozím kole!')
+        setTimeout(() => setToast(''), 3000)
+      } else {
+        handleSelectEpisode(ep)
+      }
     } else if (e.key === 'Escape') {
       setShowSuggestions(false)
     }
@@ -253,6 +272,7 @@ export default function GuessInput({
 
   const handleSubmit = () => {
     if (!canSubmit) return
+    playSubmitSound()
     onGuess({
       animeId: activeAnimeId,
       part: Number(selectedPart),
@@ -352,21 +372,25 @@ export default function GuessInput({
               {filteredEpisodes.slice(0, 12).map((ep, idx) => (
                 <motion.button
                   key={ep.id}
-                  onMouseDown={() => handleSelectEpisode(ep)}
+                  disabled={ep.isUsed}
+                  onMouseDown={(e) => { e.preventDefault(); handleSelectEpisode(ep); }}
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.03 }}
                   className={`
                     w-full text-left px-4 py-2.5 flex items-center justify-between gap-3
                     transition-colors group
-                    ${idx === highlightedIndex ? 'bg-indigo-600/30' : 'hover:bg-white/8'}
+                    ${ep.isUsed ? 'opacity-40 cursor-not-allowed bg-black/40' : idx === highlightedIndex ? 'bg-indigo-600/30' : 'hover:bg-white/8'}
                   `}
                 >
-                  <span className={`text-sm truncate transition-colors
-                    ${idx === highlightedIndex ? 'text-white' : 'text-white/60 group-hover:text-white'}`}>
-                    {ep.title}
-                  </span>
-                  <span className="text-indigo-400 font-mono font-bold text-sm flex-shrink-0">
+                  <div className="flex flex-col truncate">
+                    <span className={`text-sm truncate transition-colors
+                      ${ep.isUsed ? 'text-gray-400' : idx === highlightedIndex ? 'text-white' : 'text-white/60 group-hover:text-white'}`}>
+                      {ep.title}
+                    </span>
+                    {ep.isUsed && <span className="text-[9px] font-bold text-red-400/80 uppercase tracking-widest mt-0.5">(Již použito)</span>}
+                  </div>
+                  <span className={`${ep.isUsed ? 'text-indigo-400/50' : 'text-indigo-400'} font-mono font-bold text-sm flex-shrink-0`}>
                     {ep.episode}
                   </span>
                 </motion.button>
@@ -376,6 +400,15 @@ export default function GuessInput({
                   + {filteredEpisodes.length - 12} dalších výsledků
                 </p>
               )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Toast Warning */}
+        <AnimatePresence>
+          {toast && (
+            <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute -bottom-8 left-0 right-0 flex justify-center z-50">
+              <span className="text-[10px] font-bold text-red-200 bg-red-950 border border-red-900/50 shadow-[0_0_15px_rgba(220,38,38,0.4)] px-3 py-1 rounded-full uppercase tracking-widest">{toast}</span>
             </motion.div>
           )}
         </AnimatePresence>
@@ -397,7 +430,7 @@ export default function GuessInput({
 
         <motion.button
           id="btn-surrender"
-          onClick={onSurrender}
+          onClick={() => { playClickSound(); onSurrender(); }}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.97 }}
           className="btn-ghost flex items-center gap-1.5 text-red-400/60 hover:text-red-400
