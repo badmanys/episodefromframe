@@ -324,10 +324,13 @@ export default function App() {
 
   // ── Mode button click on Homepage ─────────────────────────────────────────
   const handleModeClick = useCallback((modeId) => {
-    const action = () => {
+    const action = async () => {
       if (modeId === 'daily') {
         startGame('daily')
-      } else if (modeId === 'classic' || modeId === 'multiplayer') {
+      } else if (modeId === 'multiplayer') {
+        const err = await handleCreateRoom('random', {})
+        if (err) alert(err)
+      } else if (modeId === 'classic') {
         setAnimeModalAction(modeId)
         setShowAnimeModal(true)
       }
@@ -335,7 +338,7 @@ export default function App() {
     // If no nickname → show modal, store action to run after save; otherwise run now
     if (!requireNickname(action)) return
     action()
-  }, [startGame, requireNickname])
+  }, [startGame, requireNickname, handleCreateRoom])
 
   // ── Anime selection from modal ─────────────────────────────────────────────
   const handleAnimeSelect = useCallback(async (animeId, options) => {
