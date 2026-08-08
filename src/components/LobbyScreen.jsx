@@ -167,7 +167,6 @@ export default memo(function LobbyScreen({ roomCode, roomData, role, onCancel, o
                     </select>
                   </div>
                 </div>
-                </div>
                 
                 {/* Filtr sérií (pouze pro Mix mód) */}
                 {(!roomData?.anime_id || roomData?.anime_id === 'random') && (
