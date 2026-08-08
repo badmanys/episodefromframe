@@ -5,13 +5,11 @@ import { Copy, Check, Users, Hash } from 'lucide-react'
 export default function LobbyScreen({ roomCode, role, onCancel }) {
   const [copied, setCopied] = useState(false)
 
-  const shareText = `Kód: ${roomCode} | ${window.location.origin}${window.location.pathname}?room=${roomCode}`
-
   const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(shareText).catch(() => {})
+    navigator.clipboard.writeText(roomCode).catch(() => {})
     setCopied(true)
     setTimeout(() => setCopied(false), 2200)
-  }, [shareText])
+  }, [roomCode])
 
   return (
     <div className="min-h-screen bg-[#0b0f17] font-sans relative overflow-hidden flex items-center justify-center px-4 py-12">
@@ -53,7 +51,7 @@ export default function LobbyScreen({ roomCode, role, onCancel }) {
             <AnimatePresence mode="wait">
               {copied
                 ? <motion.span key="copied" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="flex items-center gap-2"><Check className="w-5 h-5 text-green-400" /> Zkopírováno do schránky!</motion.span>
-                : <motion.span key="copy" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="flex items-center gap-2"><Copy className="w-5 h-5" /> Zkopírovat odkaz / kód</motion.span>
+                : <motion.span key="copy" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="flex items-center gap-2"><Copy className="w-5 h-5" /> Zkopírovat kód místnosti</motion.span>
               }
             </AnimatePresence>
           </motion.button>

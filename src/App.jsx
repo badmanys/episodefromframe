@@ -166,6 +166,18 @@ export default function App() {
     return () => { if (channel) supabase.removeChannel(channel) }
   }, [lobbyRoomCode])
 
+  // ── Effect: Host auto-starts game when guest joins ────────────────────────
+  useEffect(() => {
+    if (
+      currentScreen === 'lobby' &&
+      playerRole === 'host' &&
+      lobbyRoomData?.status === 'playing' &&
+      lobbyRoomData?.current_round >= 1
+    ) {
+      handleMultiplayerGameStart(lobbyRoomData)
+    }
+  }, [currentScreen, playerRole, lobbyRoomData, handleMultiplayerGameStart])
+
   // ── Effect: Game logic from room updates ──────────────────────────────────
   useEffect(() => {
     if (!lobbyRoomData || gameMode !== 'multiplayer' || !answer) return
