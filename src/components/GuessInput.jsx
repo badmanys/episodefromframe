@@ -155,29 +155,34 @@ function CustomDropdown({ id, label, value, options, onChange, placeholder = '�
 export default function GuessInput({
   frames,
   animes,
-  selectedAnimeId,
+  selectedAnimeId,    // used as fixed anime when isRandom=false
   onAnimeChange,
   onGuess,
   onSurrender,
   guessCount,
+  isRandom = false,   // true → player must also guess the anime
 }) {
-  const [selectedPart, setSelectedPart] = useState('')
-  const [episodeQuery, setEpisodeQuery] = useState('')
+  const [localAnimeId,    setLocalAnimeId]    = useState('')
+  const [selectedPart,    setSelectedPart]    = useState('')
+  const [episodeQuery,    setEpisodeQuery]    = useState('')
   const [selectedEpisode, setSelectedEpisode] = useState(null)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const inputRef = useRef(null)
 
+  // The active anime ID: when random mode the player picks it; otherwise it's fixed
+  const activeAnimeId = isRandom ? localAnimeId : selectedAnimeId
+
   // ── Derived data ─────────────────────────────────────────────────────────
 
   const parts = useMemo(
-    () => getPartsForAnime(frames, selectedAnimeId),
-    [frames, selectedAnimeId]
+    () => activeAnimeId ? getPartsForAnime(frames, activeAnimeId) : [],
+    [frames, activeAnimeId]
   )
 
   const allEpisodes = useMemo(
-    () => (selectedPart ? getEpisodesForPart(frames, selectedAnimeId, selectedPart) : []),
-    [frames, selectedAnimeId, selectedPart]
+    () => (selectedPart && activeAnimeId ? getEpisodesForPart(frames, activeAnimeId, selectedPart) : []),
+    [frames, activeAnimeId, selectedPart]
   )
 
   const filteredEpisodes = useMemo(() => {
@@ -202,12 +207,24 @@ export default function GuessInput({
 
   // ── Effects ──────────────────────────────────────────────────────────────
 
-  // Reset episode field when part or anime changes
+  // Reset part + episode when the active anime changes (in random mode the player changes it)
   useEffect(() => {
+    setSelectedPart('')
     setEpisodeQuery('')
     setSelectedEpisode(null)
     setShowSuggestions(false)
-  }, [selectedPart, selectedAnimeId])
+  }, [activeAnimeId])
+
+  // Reset everything when a round resets (guessCount drops to 0)
+  useEffect(() => {
+    if (guessCount === 0) {
+      setLocalAnimeId('')
+      setSelectedPart('')
+      setEpisodeQuery('')
+      setSelectedEpisode(null)
+      setShowSuggestions(false)
+    }
+  }, [guessCount])
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -237,17 +254,20 @@ export default function GuessInput({
   const handleSubmit = () => {
     if (!canSubmit) return
     onGuess({
-      animeId: selectedAnimeId,
+      animeId: activeAnimeId,
       part: Number(selectedPart),
       episode: Number(selectedEpisode.episode),
     })
+    // Reset form
+    if (isRandom) setLocalAnimeId('')
     setSelectedPart('')
     setEpisodeQuery('')
     setSelectedEpisode(null)
     setShowSuggestions(false)
   }
 
-  const canSubmit = selectedPart && selectedEpisode
+  // In random mode the player must also pick an anime before submitting
+  const canSubmit = (isRandom ? !!localAnimeId : true) && !!selectedPart && !!selectedEpisode
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -260,17 +280,19 @@ export default function GuessInput({
         <span>Tip #{guessCount + 1}</span>
       </div>
 
-      {/* ── Anime custom dropdown ─────────────────────────────────────────── */}
-      <div className="relative">
-        <CustomDropdown
-          id="select-anime"
-          label="Anime"
-          value={selectedAnimeId}
-          options={animeOptions}
-          onChange={onAnimeChange}
-          placeholder="— Vyber anime —"
-        />
-      </div>
+      {/* ── Anime dropdown (only in Random mode) ────────────────────────────── */}
+      {isRandom && (
+        <div className="relative">
+          <CustomDropdown
+            id="select-anime"
+            label="Anime"
+            value={localAnimeId}
+            options={animeOptions}
+            onChange={(val) => { setLocalAnimeId(val); setSelectedPart('') }}
+            placeholder="— Vyber anime —"
+          />
+        </div>
+      )}
 
       {/* ── Part custom dropdown ──────────────────────────────────────────── */}
       <div className="relative">
@@ -303,8 +325,12 @@ export default function GuessInput({
           onFocus={() => { if (selectedPart) setShowSuggestions(true) }}
           onBlur={() => setTimeout(() => setShowSuggestions(false), 160)}
           onKeyDown={handleEpisodeKeyDown}
-          placeholder={selectedPart ? 'Hledej číslo nebo název epizody…' : 'Nejdřív vyber part'}
-          disabled={!selectedPart}
+          placeholder={
+            isRandom && !localAnimeId ? 'Nejdřív vyber anime'
+            : !selectedPart          ? 'Nejdřív vyber part'
+            : 'Hledej číslo nebo název epizody…'
+          }
+          disabled={!selectedPart || (isRandom && !localAnimeId)}
           className="glass-input disabled:opacity-30 disabled:cursor-not-allowed"
           autoComplete="off"
           id="input-episode"
