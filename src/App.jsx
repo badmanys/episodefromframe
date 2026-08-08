@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Trophy, Film, Sparkles,
@@ -266,23 +266,29 @@ export default function App() {
     }
   }, [lobbyRoomData, gameMode, answer, isRandom, playerRole, currentRound, lobbyRoomCode])
 
+  // Refs pro bezpečný přístup k nejnovějším datům uvnitř timeoutu bez nutnosti je dávat do deps
+  const timerDataRef = useRef({ currentRound, lobbyRoomCode, lobbyRoomData })
+  useEffect(() => {
+    timerDataRef.current = { currentRound, lobbyRoomCode, lobbyRoomData }
+  }, [currentRound, lobbyRoomCode, lobbyRoomData])
+
   // ── Effect: Host automatically advances round after 3 seconds ─────────────
   useEffect(() => {
     let timer;
     if (gameMode === 'multiplayer' && lobbyRoomData?.status === 'round_results' && playerRole === 'host') {
       timer = setTimeout(async () => {
         try {
-          const next = currentRound + 1
-          const maxR = lobbyRoomData.total_rounds || 4
+          const { currentRound: rRound, lobbyRoomCode: rCode, lobbyRoomData: rData } = timerDataRef.current
+          const next = rRound + 1
+          const maxR = rData?.total_rounds || 4
           
           if (next > maxR) {
-            await updateRoomState(lobbyRoomCode, { status: 'finished' })
+            await updateRoomState(rCode, { status: 'finished' })
             setClassicFinished(true)
           } else {
-            // Clear all guesses for the next round
-            const players = lobbyRoomData.players || []
+            const players = rData?.players || []
             const clearedPlayers = players.map(p => ({ ...p, guess: null }))
-            await updateRoomState(lobbyRoomCode, { 
+            await updateRoomState(rCode, { 
               status: 'playing', 
               current_round: next, 
               players: clearedPlayers 
@@ -295,7 +301,8 @@ export default function App() {
     }
     
     return () => clearTimeout(timer)
-  }, [lobbyRoomData?.status, playerRole, gameMode, currentRound, lobbyRoomCode, lobbyRoomData?.total_rounds, lobbyRoomData?.players])
+  // Záměrně sledujeme POUZE status a roli. Ostatní data čteme přes ref, aby se timer neresetoval!
+  }, [lobbyRoomData?.status, playerRole, gameMode])
 
   // ── Start / restart a game session ────────────────────────────────────────
   const startGame = useCallback((mode, animeId, presetFrames) => {
