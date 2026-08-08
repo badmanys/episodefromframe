@@ -253,10 +253,17 @@ export default function App() {
       const results = evaluateMultiplayerRound(players, answer, isRandom)
       
       const updatedPlayers = players.map(p => {
-        if (results.winners.includes(p.role)) {
-          return { ...p, score: (p.score || 0) + 1 }
+        const playerResult = results.sortedPlayers.find(r => r.role === p.role)
+        let roundScore = 0
+        
+        if (playerResult?.valid) {
+          roundScore += 1 // Krok 2 (Základní bod za Part/Sérii)
+          if (results.winners.includes(p.role)) {
+            roundScore += 1 // Krok 3 (Bonus za nejbližší Epizodu)
+          }
         }
-        return p
+        
+        return { ...p, score: (p.score || 0) + roundScore }
       })
       
       updateRoomState(lobbyRoomCode, { 

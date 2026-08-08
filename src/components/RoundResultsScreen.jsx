@@ -98,7 +98,7 @@ export default memo(function RoundResultsScreen({ players, answer, isRandom, isH
               </button>
             ) : (
               <div className="flex flex-col items-center justify-center text-white/50 py-2 animate-pulse">
-                <Loader2 className="w-5 h-5 mb-2 animate-spin" />
+                <div className="w-6 h-6 border-4 border-t-transparent border-white rounded-full animate-spin mb-3"></div>
                 <span className="text-sm font-semibold">Čeká se, až zakladatel spustí další kolo...</span>
               </div>
             )}
