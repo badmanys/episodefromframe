@@ -34,7 +34,7 @@ export default function WikiModal({ isOpen, onClose, animes = [] }) {
           {/* Header for mobile, close button */}
           <button 
             onClick={onClose}
-            className="absolute top-4 right-4 z-50 p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 hover:text-white transition-all shadow-lg"
+            className="absolute top-4 right-4 z-50 p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 hover:text-white transition-colors transition-opacity transition-transform shadow-lg"
           >
             <X className="w-5 h-5" />
           </button>
@@ -59,7 +59,7 @@ export default function WikiModal({ isOpen, onClose, animes = [] }) {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-left whitespace-nowrap sm:whitespace-normal flex-shrink-0 ${isActive ? 'bg-red-500/20 border border-red-500/30 text-white shadow-[0_0_15px_rgba(220,38,38,0.15)]' : 'bg-transparent border border-transparent text-white/50 hover:text-white hover:bg-white/5'}`}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors transition-opacity transition-transform text-left whitespace-nowrap sm:whitespace-normal flex-shrink-0 ${isActive ? 'bg-red-500/20 border border-red-500/30 text-white shadow-[0_0_15px_rgba(220,38,38,0.15)]' : 'bg-transparent border border-transparent text-white/50 hover:text-white hover:bg-white/5'}`}
                   >
                     <Icon className={`w-5 h-5 ${isActive ? 'text-red-400' : 'text-white/30'}`} />
                     <span className="font-bold text-sm tracking-wide">{tab.label}</span>

@@ -1,7 +1,7 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, SendHorizontal, Flag, ChevronDown, Check } from 'lucide-react'
-import { getPartsForAnime, getEpisodesForPart, ANIME_NAMES } from '../lib/frames.js'
+import { getPartsForAnime, getEpisodesForPart } from '../lib/frames.js'
 import { playClickSound, playSubmitSound } from '../lib/audio.js'
 
 // ── Reusable Custom Dropdown ──────────────────────────────────────────────────
@@ -111,7 +111,7 @@ function CustomDropdown({ id, label, value, options, onChange, placeholder = '�
             exit="exit"
             className="
               absolute z-50 w-full overflow-hidden
-              backdrop-blur-md bg-slate-900/90 border border-white/10
+              bg-[#151924] border border-white/10
               rounded-xl shadow-2xl shadow-black/60
               mt-1
             "
@@ -153,7 +153,7 @@ function CustomDropdown({ id, label, value, options, onChange, placeholder = '�
 
 // ── Main GuessInput ───────────────────────────────────────────────────────────
 
-export default function GuessInput({
+export default memo(function GuessInput({
   frames,
   animes,
   selectedAnimeId,    // used as fixed anime when isRandom=false
@@ -243,7 +243,9 @@ export default function GuessInput({
       return
     }
     setSelectedEpisode(ep)
-    setEpisodeQuery(`Ep. ${ep.episode} – ${ep.title}`)
+    // Show episode_name if available, otherwise fall back to the frame title
+    const displayName = ep.episode_name || ep.title
+    setEpisodeQuery(`Ep. ${ep.episode}${displayName ? ` – ${displayName}` : ''}`)
     setShowSuggestions(false)
     setHighlightedIndex(-1)
   }, [])
@@ -365,7 +367,7 @@ export default function GuessInput({
               exit={{ opacity: 0, y: -6, scale: 0.98 }}
               transition={{ duration: 0.15 }}
               className="absolute top-full left-0 right-0 mt-1.5 z-50
-                         backdrop-blur-md bg-slate-900/90 border border-white/10
+                         bg-[#151924] border border-white/10
                          rounded-xl shadow-2xl shadow-black/60
                          overflow-hidden max-h-52 overflow-y-auto"
             >
@@ -384,14 +386,17 @@ export default function GuessInput({
                   `}
                 >
                   <div className="flex flex-col truncate">
-                    <span className={`text-sm truncate transition-colors
+                    <span className={`text-sm font-medium truncate transition-colors
                       ${ep.isUsed ? 'text-gray-400' : idx === highlightedIndex ? 'text-white' : 'text-white/60 group-hover:text-white'}`}>
-                      {ep.title}
+                      {ep.episode_name || ep.title}
                     </span>
+                    {ep.episode_name && (
+                      <span className="text-[10px] text-white/30 truncate">{ep.title}</span>
+                    )}
                     {ep.isUsed && <span className="text-[9px] font-bold text-red-400/80 uppercase tracking-widest mt-0.5">(Již použito)</span>}
                   </div>
                   <span className={`${ep.isUsed ? 'text-indigo-400/50' : 'text-indigo-400'} font-mono font-bold text-sm flex-shrink-0`}>
-                    {ep.episode}
+                    Ep.&nbsp;{ep.episode}
                   </span>
                 </motion.button>
               ))}
@@ -442,4 +447,4 @@ export default function GuessInput({
       </div>
     </div>
   )
-}
+})

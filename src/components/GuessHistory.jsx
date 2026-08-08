@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion'
 import { Check, X, ArrowUp, ArrowDown, Minus } from 'lucide-react'
-import { ANIME_NAMES } from '../lib/frames.js'
 
 // ── Single feedback cell ──────────────────────────────────────────────────────
 
@@ -48,8 +47,8 @@ function FeedbackCell({ label, value, match, direction }) {
 
 // ── Full guess row ────────────────────────────────────────────────────────────
 
-function GuessRow({ result, index }) {
-  const animeName = ANIME_NAMES[result.guess.animeId] || result.guess.animeId
+function GuessRow({ result, index, animes }) {
+  const animeName = animes?.find(a => a.id === result.guess.animeId)?.title || result.guess.animeId
 
   return (
     <motion.div
@@ -98,7 +97,7 @@ function GuessRow({ result, index }) {
 
 // ── Exported component ────────────────────────────────────────────────────────
 
-export default function GuessHistory({ guesses }) {
+export default function GuessHistory({ guesses, animes = [] }) {
   if (!guesses.length) return null
 
   return (
@@ -112,7 +111,7 @@ export default function GuessHistory({ guesses }) {
 
       <div className="space-y-2.5">
         {guesses.map((result, idx) => (
-          <GuessRow key={idx} result={result} index={idx} />
+          <GuessRow key={idx} result={result} index={idx} animes={animes} />
         ))}
       </div>
     </section>

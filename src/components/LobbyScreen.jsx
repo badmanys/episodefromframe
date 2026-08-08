@@ -1,9 +1,9 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Copy, Check, Users, Hash, Play, Clock, Share2, LogOut } from 'lucide-react'
 import { playClickSound } from '../lib/audio.js'
 
-export default function LobbyScreen({ roomCode, roomData, role, onCancel, onStartEarly }) {
+export default memo(function LobbyScreen({ roomCode, roomData, role, onCancel, onStartEarly, animes = [], onUpdateSettings }) {
   const [copied, setCopied] = useState(false)
   const [countdown, setCountdown] = useState(null) // null = inaktivní, 3, 2, 1, 0
 
@@ -29,7 +29,7 @@ export default function LobbyScreen({ roomCode, roomData, role, onCancel, onStar
 
   const maxPlayers = roomData?.max_players || 2
   const players = roomData?.players || []
-  const isHost = role === 'player1'
+  const isHost = role === 'host' || role === 'player1'
   const isFull = players.length >= maxPlayers
   const canStartEarly = isHost && players.length >= 2 && !isFull && countdown === null
 
@@ -106,7 +106,7 @@ export default function LobbyScreen({ roomCode, roomData, role, onCancel, onStar
 
           <div className="flex gap-3 mb-8">
             <motion.button onClick={handleCopy} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-              className={`flex-1 py-4 rounded-xl border text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300 shadow-lg
+              className={`flex-1 py-4 rounded-xl border text-sm font-bold flex items-center justify-center gap-2 transition-colors transition-opacity transition-transform duration-300 shadow-lg
                 ${copied 
                   ? 'bg-emerald-950/50 border-emerald-500/50 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.2)]' 
                   : 'bg-white/5 border-white/10 text-white/70 hover:text-white hover:bg-white/10 hover:border-red-500/30'}`}
@@ -119,12 +119,57 @@ export default function LobbyScreen({ roomCode, roomData, role, onCancel, onStar
               </AnimatePresence>
             </motion.button>
             <motion.button onClick={handleShare} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-              className="w-14 bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 hover:border-red-500/30 rounded-xl flex items-center justify-center shadow-lg transition-all"
+              className="w-14 bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 hover:border-red-500/30 rounded-xl flex items-center justify-center shadow-lg transition-colors transition-opacity transition-transform"
               title="Sdílet"
             >
               <Share2 className="w-5 h-5" />
             </motion.button>
           </div>
+
+          {isHost && (
+            <div className="border-t border-white/10 pt-6 mb-6">
+              <span className="text-white/40 text-[10px] uppercase tracking-widest font-black block mb-4 px-1">Nastavení místnosti</span>
+              <div className="space-y-4 px-1">
+                <div>
+                  <label className="text-white/60 text-xs font-semibold mb-1.5 block">Anime Série</label>
+                  <select 
+                    value={roomData?.anime_id || 'random'}
+                    onChange={(e) => onUpdateSettings && onUpdateSettings({ anime_id: e.target.value })}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500/50"
+                  >
+                    <option value="random">Náhodný mix všech</option>
+                    {animes.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
+                  </select>
+                </div>
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <label className="text-white/60 text-xs font-semibold mb-1.5 block">Počet kol</label>
+                    <select
+                      value={roomData?.total_rounds || 5}
+                      onChange={(e) => onUpdateSettings && onUpdateSettings({ total_rounds: parseInt(e.target.value) })}
+                      className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500/50"
+                    >
+                      <option value={2}>2</option>
+                      <option value={5}>5</option>
+                      <option value={10}>10</option>
+                      <option value={15}>15</option>
+                      <option value={20}>20</option>
+                    </select>
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-white/60 text-xs font-semibold mb-1.5 block">Max. hráčů</label>
+                    <select
+                      value={maxPlayers}
+                      onChange={(e) => onUpdateSettings && onUpdateSettings({ max_players: parseInt(e.target.value) })}
+                      className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500/50"
+                    >
+                      {[2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="border-t border-white/10 pt-6">
             <div className="flex items-center justify-between mb-4 px-1">
@@ -165,7 +210,7 @@ export default function LobbyScreen({ roomCode, roomData, role, onCancel, onStar
 
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="flex justify-center mt-6">
           <motion.button onClick={() => { playClickSound(); onCancel(); }} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-            className="px-6 py-2.5 rounded-full border border-red-500/10 text-red-400/60 text-sm font-semibold hover:text-red-400 hover:bg-red-950/30 hover:border-red-500/30 transition-all duration-200 flex items-center justify-center gap-2"
+            className="px-6 py-2.5 rounded-full border border-red-500/10 text-red-400/60 text-sm font-semibold hover:text-red-400 hover:bg-red-950/30 hover:border-red-500/30 transition-colors transition-opacity transition-transform duration-200 flex items-center justify-center gap-2"
           >
             <LogOut className="w-4 h-4" /> Opustit hru
           </motion.button>
@@ -174,4 +219,4 @@ export default function LobbyScreen({ roomCode, roomData, role, onCancel, onStar
       </div>
     </div>
   )
-}
+})

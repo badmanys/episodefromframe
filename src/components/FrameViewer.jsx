@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Eye, EyeOff, Loader2, ZoomIn } from 'lucide-react'
 
-export default function FrameViewer({ frame, revealed = false }) {
+function FrameViewer({ frame, revealed = false }) {
   const [imageState, setImageState] = useState('loading') // 'loading' | 'loaded' | 'error'
   const [isFullscreen, setIsFullscreen] = useState(false)
 
@@ -69,12 +69,12 @@ export default function FrameViewer({ frame, revealed = false }) {
               onError={() => setImageState('error')}
               animate={{
                 filter: imageState === 'loaded'
-                  ? revealed ? 'blur(0px) brightness(1)' : 'blur(30px) brightness(0.3)'
+                  ? revealed ? 'blur(0px) brightness(1)' : 'blur(0px) brightness(0.6)'
                   : 'blur(0px) brightness(0)',
-                scale: imageState === 'loaded' && !revealed ? 1.2 : 1,
+                scale: 1,
               }}
               transition={{ duration: 0.8, ease: 'easeOut' }}
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+              className="absolute inset-0 w-full h-full object-cover"
               style={{ willChange: 'filter, transform' }}
             />
             {revealed && imageState === 'loaded' && (
@@ -85,27 +85,7 @@ export default function FrameViewer({ frame, revealed = false }) {
           </div>
         )}
 
-        {/* "Mystery" overlay shown when image is loaded but not yet revealed */}
-        <AnimatePresence>
-          {imageState === 'loaded' && !revealed && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.4 }}
-              className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 pointer-events-none"
-            >
-              <div className="w-16 h-16 rounded-2xl bg-black/50 backdrop-blur-md
-                              border border-red-500/30 flex items-center justify-center
-                              shadow-[0_0_30px_rgba(220,38,38,0.3)]">
-                <Eye className="w-8 h-8 text-red-500 drop-shadow-[0_0_10px_rgba(220,38,38,0.8)]" />
-              </div>
-              <p className="text-red-100/60 text-[10px] font-black tracking-[0.3em] uppercase drop-shadow-md">
-                Ze které epizody?
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+
 
         {/* Reveal shimmer flash */}
         <AnimatePresence>
@@ -133,7 +113,7 @@ export default function FrameViewer({ frame, revealed = false }) {
               <div>
                 <p className="text-red-100 font-bold text-sm uppercase tracking-wider">{frame.title}</p>
                 <p className="text-red-400/60 font-black text-[10px] mt-1 uppercase tracking-[0.2em]">
-                  Part {frame.part} · Epizoda {frame.episode}
+                  Part {frame.part} · Epizoda {frame.episode}{frame.episode_name ? ` – ${frame.episode_name}` : ''}
                 </p>
               </div>
               <span className="text-2xl drop-shadow-[0_0_10px_rgba(220,38,38,0.5)]">🎬</span>
@@ -170,3 +150,5 @@ export default function FrameViewer({ frame, revealed = false }) {
     </>
   )
 }
+
+export default memo(FrameViewer)

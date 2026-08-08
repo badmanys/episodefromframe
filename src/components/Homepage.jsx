@@ -57,7 +57,7 @@ function MultiplayerPanel({ onCreate, onJoin }) {
               onChange={e => { setRoomCode(sanitizeRoomCode(e.target.value)); setJoinError('') }}
               onKeyDown={e => e.key === 'Enter' && handleJoin()}
               placeholder="KÓD MÍSTNOSTI"
-              className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-white/20 font-mono tracking-[0.2em] focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all text-center uppercase"
+              className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-white/20 font-mono tracking-[0.2em] focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-colors transition-opacity transition-transform text-center uppercase"
               maxLength={6} id="input-room-code"
             />
             <motion.button onClick={handleJoin} disabled={roomCode.length !== 6 || joining}
@@ -78,15 +78,16 @@ function MultiplayerPanel({ onCreate, onJoin }) {
 const MODES = [
   {
     id: 'classic', Icon: Trophy, badge: '5 kol', title: 'Klasický mód', desc: 'Samostatná hra na 5 kol. Uhodni anime!',
-    accent: { icon: 'bg-red-700/20 border border-red-500/30 text-red-500', arrow: 'bg-red-500/20 text-red-400', glow: 'hover:shadow-[0_0_30px_rgba(220,38,38,0.15)]', border: 'hover:border-red-500/30', badge: 'bg-red-950/50 text-red-400 border-red-900/50' },
+    accent: { icon: 'bg-red-700/20 border border-red-500/30 text-red-500', arrow: 'bg-red-500/20 text-red-400', glowShadow: 'shadow-[0_0_30px_rgba(220,38,38,0.15)]', border: 'group-hover:border-red-500/30', badge: 'bg-red-950/50 text-red-400 border-red-900/50' },
   },
   {
     id: 'multiplayer', Icon: Users, badge: 'PvP', title: 'Multiplayer', desc: 'Založ místnost a vyzvi přátele na souboj.',
-    accent: { icon: 'bg-amber-600/20 border border-amber-500/30 text-amber-500', arrow: 'bg-amber-500/20 text-amber-400', glow: 'hover:shadow-[0_0_30px_rgba(245,158,11,0.15)]', border: 'hover:border-amber-500/30', badge: 'bg-amber-950/50 text-amber-400 border-amber-900/50' },
+    accent: { icon: 'bg-amber-600/20 border border-amber-500/30 text-amber-500', arrow: 'bg-amber-500/20 text-amber-400', glowShadow: 'shadow-[0_0_30px_rgba(245,158,11,0.15)]', border: 'group-hover:border-amber-500/30', badge: 'bg-amber-950/50 text-amber-400 border-amber-900/50' },
   },
   {
-    id: 'daily', Icon: Calendar, badge: '1 pokus', title: 'Denní Výzva', desc: 'Jeden společný obrázek denně pro všechny.',
-    accent: { icon: 'bg-emerald-700/20 border border-emerald-500/30 text-emerald-500', arrow: 'bg-emerald-500/20 text-emerald-400', glow: 'hover:shadow-[0_0_30px_rgba(16,185,129,0.15)]', border: 'hover:border-emerald-500/30', badge: 'bg-emerald-950/50 text-emerald-400 border-emerald-900/50' },
+    id: 'daily', Icon: Calendar, badge: 'Již brzy...', title: 'Denní Výzva', desc: 'Jeden společný obrázek denně pro všechny.',
+    accent: { icon: 'bg-gray-700/20 border border-gray-600/30 text-gray-500', arrow: 'bg-gray-700/20 text-gray-600', glowShadow: '', border: 'border-white/5', badge: 'bg-gray-900/50 text-gray-400 border-gray-800/50' },
+    disabled: true,
   },
 ]
 
@@ -103,9 +104,11 @@ function ModeButton({ mode, index, onStart, onCreate, onJoin }) {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 + index * 0.08, duration: 0.4, ease: 'easeOut' }}>
       <motion.div whileHover={{ scale: 1.012, y: -1 }} transition={{ duration: 0.18 }}
-        className={`relative overflow-hidden rounded-2xl border border-white/8 bg-white/[0.04] backdrop-blur-md shadow-lg hover:shadow-xl transition-all duration-300 ${accent.glow} ${accent.border}`}
+        className={`group relative overflow-hidden rounded-2xl border border-white/8 bg-[#1a1d2d]/40 shadow-lg transition-colors transform-gpu duration-300 ${accent.border}`}
       >
-        <button onClick={handleClick} id={`btn-mode-${id}`} className="w-full flex items-center gap-4 px-5 py-5 text-left">
+        {/* Shadow glow layer animated ONLY via opacity for 60fps performance */}
+        {!mode.disabled && <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity transform-gpu duration-300 pointer-events-none rounded-2xl ${accent.glowShadow}`} />}
+        <button disabled={mode.disabled} onClick={handleClick} id={`btn-mode-${id}`} className={`w-full flex items-center gap-4 px-5 py-5 text-left relative z-10 ${mode.disabled ? 'opacity-40 cursor-not-allowed' : ''}`}>
           <div className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg ${accent.icon}`}>
             <Icon className="w-7 h-7" strokeWidth={1.5} />
           </div>
@@ -151,7 +154,7 @@ function ProfileWidget({ nickname, onRequestChangeNickname, onRequestWiki }) {
           <AudioToggle className="w-8 h-8 !rounded-lg" />
           <button 
             onClick={() => { playClickSound(); onRequestChangeNickname(); }}
-            className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-white/50 hover:text-white transition-all flex items-center justify-center shadow-md"
+            className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-white/50 hover:text-white transition-colors transition-opacity transition-transform flex items-center justify-center shadow-md"
             title="Upravit profil"
           >
             <Edit2 className="w-3.5 h-3.5" />
@@ -162,7 +165,7 @@ function ProfileWidget({ nickname, onRequestChangeNickname, onRequestWiki }) {
         <div className="w-full mt-2 pt-2 border-t border-white/5">
           <button 
             onClick={() => { playClickSound(); onRequestWiki(); }}
-            className="w-full py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 hover:text-red-300 transition-all text-[10px] font-bold tracking-widest uppercase flex items-center justify-center gap-1.5 shadow-[0_0_10px_rgba(220,38,38,0.1)]"
+            className="w-full py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 hover:text-red-300 transition-colors transition-opacity transition-transform text-[10px] font-bold tracking-widest uppercase flex items-center justify-center gap-1.5 shadow-[0_0_10px_rgba(220,38,38,0.1)]"
           >
             <BookOpen className="w-3.5 h-3.5" /> Herní Wiki / Pravidla
           </button>
@@ -192,7 +195,7 @@ function ProfileWidget({ nickname, onRequestChangeNickname, onRequestWiki }) {
           <AudioToggle className="flex-1" />
           <button 
             onClick={() => { playClickSound(); onRequestChangeNickname(); }}
-            className="flex-[2] py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-white/50 hover:text-white transition-all text-xs font-semibold flex items-center justify-center gap-2 shadow-lg"
+            className="flex-[2] py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-white/50 hover:text-white transition-colors transition-opacity transition-transform text-xs font-semibold flex items-center justify-center gap-2 shadow-lg"
             title="Upravit profil"
           >
             <Edit2 className="w-3 h-3" /> Upravit
@@ -203,7 +206,7 @@ function ProfileWidget({ nickname, onRequestChangeNickname, onRequestWiki }) {
         <div className="w-full mt-1">
           <button 
             onClick={() => { playClickSound(); onRequestWiki(); }}
-            className="w-full py-2 rounded-xl bg-gradient-to-r from-red-950/80 to-red-900/40 hover:from-red-900/80 hover:to-red-800/60 border border-red-500/30 text-red-400 hover:text-red-300 transition-all text-[9px] font-black tracking-widest uppercase flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(220,38,38,0.15)]"
+            className="w-full py-2 rounded-xl bg-gradient-to-r from-red-950/80 to-red-900/40 hover:from-red-900/80 hover:to-red-800/60 border border-red-500/30 text-red-400 hover:text-red-300 transition-colors transition-opacity transition-transform text-[9px] font-black tracking-widest uppercase flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(220,38,38,0.15)]"
           >
             <BookOpen className="w-3.5 h-3.5" /> Herní Wiki
           </button>

@@ -1,19 +1,41 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Shuffle, Users, Hash, Clock, Swords, Zap, Crosshair, Flame, Droplet, Star, Orbit, CheckCircle2, Play } from 'lucide-react'
-import { ANIME_NAMES } from '../lib/frames.js'
 import { playClickSound } from '../lib/audio.js'
 
+// Known accents for popular series
 const ANIME_ACCENTS = {
-  jojo:   { from: '#b91c1c', to: '#ef4444', shadow: 'rgba(220,38,38,0.35)', icon: Star },
-  naruto: { from: '#ea580c', to: '#f97316', shadow: 'rgba(234,88,12,0.35)', icon: Zap },
+  jojo:   { from: '#b91c1c', to: '#ef4444', shadow: 'rgba(220,38,38,0.35)',  icon: Star },
+  naruto: { from: '#ea580c', to: '#f97316', shadow: 'rgba(234,88,12,0.35)',  icon: Zap },
   hxh:    { from: '#c2410c', to: '#fb923c', shadow: 'rgba(249,115,22,0.35)', icon: Crosshair },
-  aot:    { from: '#991b1b', to: '#dc2626', shadow: 'rgba(220,38,38,0.35)', icon: Swords },
-  bleach: { from: '#b91c1c', to: '#f87171', shadow: 'rgba(220,38,38,0.35)', icon: Droplet },
+  aot:    { from: '#991b1b', to: '#dc2626', shadow: 'rgba(220,38,38,0.35)',  icon: Swords },
+  bleach: { from: '#b91c1c', to: '#f87171', shadow: 'rgba(220,38,38,0.35)',  icon: Droplet },
   fma:    { from: '#b45309', to: '#fbbf24', shadow: 'rgba(245,158,11,0.35)', icon: Flame },
   dbs:    { from: '#c2410c', to: '#fcd34d', shadow: 'rgba(245,158,11,0.35)', icon: Orbit },
 }
-const DEFAULT_ACCENT = { from: '#b91c1c', to: '#ef4444', shadow: 'rgba(220,38,38,0.35)', icon: Star }
+
+// Palette for dynamically generated accents (unknown series)
+const DYNAMIC_PALETTE = [
+  { from: '#6d28d9', to: '#a78bfa', shadow: 'rgba(139,92,246,0.35)', icon: Star },
+  { from: '#0e7490', to: '#22d3ee', shadow: 'rgba(6,182,212,0.35)',  icon: Zap },
+  { from: '#065f46', to: '#34d399', shadow: 'rgba(16,185,129,0.35)', icon: Orbit },
+  { from: '#92400e', to: '#fbbf24', shadow: 'rgba(251,191,36,0.35)', icon: Flame },
+  { from: '#1e3a8a', to: '#60a5fa', shadow: 'rgba(96,165,250,0.35)', icon: Droplet },
+  { from: '#831843', to: '#f472b6', shadow: 'rgba(244,114,182,0.35)',icon: Crosshair },
+  { from: '#134e4a', to: '#2dd4bf', shadow: 'rgba(45,212,191,0.35)', icon: Swords },
+]
+
+// Returns accent for any animeId — known or unknown
+function getAccent(animeId) {
+  if (ANIME_ACCENTS[animeId]) return ANIME_ACCENTS[animeId]
+  // Deterministic hash → pick from palette so same ID always gets same color
+  let hash = 0
+  for (let i = 0; i < animeId.length; i++) {
+    hash = (hash * 31 + animeId.charCodeAt(i)) >>> 0
+  }
+  return DYNAMIC_PALETTE[hash % DYNAMIC_PALETTE.length]
+}
+
 
 export default function AnimeSelectModal({ animes, action = 'classic', onSelect, onClose }) {
   const [rounds, setRounds] = useState(5)
@@ -105,7 +127,7 @@ export default function AnimeSelectModal({ animes, action = 'classic', onSelect,
                     <button
                       key={val}
                       onClick={() => setTimeLimit(val)}
-                      className={`flex-1 py-1.5 rounded text-xs font-semibold border transition-all duration-300 ${timeLimit === val ? 'bg-red-600/20 border-red-500 text-red-400 shadow-[0_0_15px_rgba(220,38,38,0.3)]' : 'bg-black/40 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'}`}
+                      className={`flex-1 py-1.5 rounded text-xs font-semibold border transition-colors transition-opacity transition-transform duration-300 ${timeLimit === val ? 'bg-red-600/20 border-red-500 text-red-400 shadow-[0_0_15px_rgba(220,38,38,0.3)]' : 'bg-black/40 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'}`}
                     >
                       {val === 0 ? 'Žádný' : `${val}s`}
                     </button>
@@ -117,7 +139,7 @@ export default function AnimeSelectModal({ animes, action = 'classic', onSelect,
 
           <div className="px-5 pb-3 grid grid-cols-2 gap-2.5">
             {animes.map((anime, i) => {
-              const accent = ANIME_ACCENTS[anime.id] ?? DEFAULT_ACCENT
+              const accent = getAccent(anime.id)
               const isSelected = selectedAnime === anime.id
               const Icon = accent.icon
               

@@ -12,28 +12,30 @@ import {
   getDailyFrame,
 } from './lib/frames.js'
 import { createRoom, joinRoom, updateRoomState, submitGuess, evaluateMultiplayerRound, subscribeToRoom, fetchRoom } from './lib/multiplayer.js'
+import { obfuscateFrame, deobfuscateFrame } from './lib/security.js'
 import Homepage         from './components/Homepage.jsx'
 import AnimeSelectModal from './components/AnimeSelectModal.jsx'
+import NicknameModal    from './components/NicknameModal.jsx'
 import LobbyScreen      from './components/LobbyScreen.jsx'
 import FrameViewer      from './components/FrameViewer.jsx'
 import GuessInput       from './components/GuessInput.jsx'
 import GuessHistory     from './components/GuessHistory.jsx'
 import WikiModal        from './components/WikiModal.jsx'
 import DailySidePanel   from './components/DailySidePanel.jsx'
+import AdminScreen      from './components/AdminScreen.jsx'
+import RoundResultsScreen from './components/RoundResultsScreen.jsx'
 import { supabase }     from './lib/supabase.js'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const ROUND_MAX_SCORE = 1000
 const SCORE_PENALTY   = 100
 const CLASSIC_ROUNDS  = 5
-const MULTIPLAYER_ROUNDS = 4
 
 // ── TopBanner ─────────────────────────────────────────────────────────────────
-function TopBanner({ currentScreen, totalScore, gameMode, currentRound, onGoHome, opponentScore }) {
-  const modeLabelMap = { classic: 'Classic', multiplayer: '1v1' }
-  const totalRounds = gameMode === 'multiplayer' ? MULTIPLAYER_ROUNDS : CLASSIC_ROUNDS
+function TopBanner({ currentScreen, totalScore, gameMode, currentRound, onGoHome, opponentScore, lobbyRoomData }) {
+  const totalRounds = gameMode === 'multiplayer' ? (lobbyRoomData?.total_rounds || 4) : CLASSIC_ROUNDS
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-slate-950/80 border-b border-white/8" style={{ height: '56px' }}>
+    <div className="fixed top-0 left-0 right-0 z-50 bg-[#0f111a] border-b border-white/8" style={{ height: '56px' }}>
       <div className="max-w-2xl mx-auto px-4 h-full flex items-center justify-between gap-4">
         <div className="flex items-center gap-2.5 min-w-0">
           {currentScreen === 'game' && (
@@ -48,7 +50,7 @@ function TopBanner({ currentScreen, totalScore, gameMode, currentRound, onGoHome
           <div className="min-w-0">
             <p className="text-sm font-bold text-white leading-tight tracking-tight whitespace-nowrap">Anime Frame Guesser</p>
             {currentScreen === 'game' && gameMode
-              ? <p className="text-[10px] text-white/35 leading-none">{modeLabelMap[gameMode]} · Kolo {currentRound}/{totalRounds}</p>
+              ? <p className="text-[10px] text-white/35 leading-none">Kolo {currentRound}/{totalRounds}</p>
               : <p className="text-[10px] text-white/25 leading-none">Uhádni epizodu</p>
             }
           </div>
@@ -76,11 +78,42 @@ function TopBanner({ currentScreen, totalScore, gameMode, currentRound, onGoHome
 // ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
 
+  // ── Admin mode (přístup přes ?admin v URL) ───────────────────────────────
+  const [isAdminMode, setIsAdminMode] = useState(
+    () => new URLSearchParams(window.location.search).has('admin')
+  )
+
   // ── Data ──────────────────────────────────────────────────────────────────
   const [frames,  setFrames]  = useState([])
   const [animes,  setAnimes]  = useState([])
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
+
+  // ── Nickname ───────────────────────────────────────────────────────────────
+  const [nickname,          setNickname]          = useState(() => localStorage.getItem('nickname') || '')
+  const [showNicknameModal, setShowNicknameModal] = useState(false)
+  const [pendingAction,     setPendingAction]     = useState(null) // action to run after nickname set
+
+  const handleSaveNickname = useCallback((name) => {
+    localStorage.setItem('nickname', name)
+    setNickname(name)
+    setShowNicknameModal(false)
+    // Execute the action that was blocked by missing nickname
+    if (pendingAction) {
+      pendingAction()
+      setPendingAction(null)
+    }
+  }, [pendingAction])
+
+  // Require nickname before any game action
+  const requireNickname = useCallback((action) => {
+    if (!nickname) {
+      setPendingAction(() => action)
+      setShowNicknameModal(true)
+      return false
+    }
+    return true
+  }, [nickname])
 
   // ── Navigation ─────────────────────────────────────────────────────────────
   // 'home' | 'lobby' | 'game'
@@ -142,12 +175,20 @@ export default function App() {
     }
   }, [])
 
-  // ── Load frames ────────────────────────────────────────────────────────────
+  // ── Load frames ─────────────────────────────────────────────────────────
   useEffect(() => {
     fetchFrames()
       .then(data => { setFrames(data); setAnimes(getUniqueAnimes(data)); setLoading(false) })
       .catch(err => { setError(err.message); setLoading(false) })
   }, [])
+
+  // ── Auto-show nickname modal on first visit ────────────────────────────────
+  useEffect(() => {
+    if (!loading && !nickname) {
+      setShowNicknameModal(true)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading])
 
   // ── Auto-join from URL ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -163,11 +204,13 @@ export default function App() {
 
   // ── Realtime Multiplayer Subscription & Fallback Polling ─────────────────
   useEffect(() => {
-    if (!lobbyRoomCode) return
+    if (!lobbyRoomCode || !nickname) return
     let channel = null
     try {
-      channel = subscribeToRoom(lobbyRoomCode, (updatedRoom) => {
+      channel = subscribeToRoom(lobbyRoomCode, nickname, (updatedRoom) => {
         setLobbyRoomData(updatedRoom)
+      }, (leftName) => {
+        console.log('[Multiplayer] Odpojil se hráč:', leftName)
       })
     } catch (err) {
       console.error('[Multiplayer] Failed to subscribe:', err)
@@ -178,7 +221,7 @@ export default function App() {
       // Polling běží jen pokud jsme v čekárně (Lobby)
       if (lobbyRoomCode) {
         const { data } = await fetchRoom(lobbyRoomCode)
-        if (data && data.status === 'playing') {
+        if (data) {
           setLobbyRoomData(data)
         }
       }
@@ -190,68 +233,69 @@ export default function App() {
       }
       clearInterval(interval)
     }
-  }, [lobbyRoomCode])
+  }, [lobbyRoomCode, nickname])
 
 
   // ── Effect: Game logic from room updates ──────────────────────────────────
   useEffect(() => {
     if (!lobbyRoomData || gameMode !== 'multiplayer' || !answer) return
 
-    const { player1_guess, player2_guess, current_round } = lobbyRoomData
+    const players = lobbyRoomData.players || []
+    const allGuessed = players.length > 0 && players.every(p => p.guess !== null)
 
     // 1. Advance round if host progressed it
-    if (current_round > currentRound) {
+    if (lobbyRoomData.current_round > currentRound) {
       nextRoundLocal()
     }
 
-    // 2. Both players have guessed for current round
-    if (player1_guess && player2_guess && !multiplayerResult) {
-      setWaitingForOpponent(false)
-      const result = evaluateMultiplayerRound(player1_guess, player2_guess, answer, isRandom)
+    // 2. Only Host evaluates and updates Supabase state when all guess
+    if (playerRole === 'host' && allGuessed && lobbyRoomData.status === 'playing') {
+      const results = evaluateMultiplayerRound(players, answer, isRandom)
       
-      let myResult = 'draw'
-      if (result === playerRole) myResult = 'win'
-      else if (result !== 'draw' && result !== 'none') myResult = 'lose'
+      const updatedPlayers = players.map(p => {
+        if (results.winners.includes(p.role)) {
+          return { ...p, score: (p.score || 0) + 1 }
+        }
+        return p
+      })
       
-      setMultiplayerResult(myResult)
-
-      // Host triggers score update
-      if (playerRole === 'host') {
-        let p1Score = lobbyRoomData.player1_score
-        let p2Score = lobbyRoomData.player2_score
-        if (result === 'host') p1Score += 1
-        if (result === 'guest') p2Score += 1
-        updateRoomState(lobbyRoomCode, { player1_score: p1Score, player2_score: p2Score })
-      }
+      updateRoomState(lobbyRoomCode, { 
+        status: 'round_results', 
+        players: updatedPlayers
+      })
     }
-  }, [lobbyRoomData, gameMode, answer, isRandom, playerRole, currentRound, multiplayerResult, lobbyRoomCode])
+  }, [lobbyRoomData, gameMode, answer, isRandom, playerRole, currentRound, lobbyRoomCode])
 
-  // ── Mode button click on Homepage ─────────────────────────────────────────
-  const handleModeClick = useCallback((modeId) => {
-    if (modeId === 'daily') {
-      startGame('daily')
-    } else if (modeId === 'classic' || modeId === 'multiplayer') {
-      setAnimeModalAction(modeId)
-      setShowAnimeModal(true)
+  // ── Effect: Host automatically advances round after 3 seconds ─────────────
+  useEffect(() => {
+    let timer;
+    if (gameMode === 'multiplayer' && lobbyRoomData?.status === 'round_results' && playerRole === 'host') {
+      timer = setTimeout(async () => {
+        try {
+          const next = currentRound + 1
+          const maxR = lobbyRoomData.total_rounds || 4
+          
+          if (next > maxR) {
+            await updateRoomState(lobbyRoomCode, { status: 'finished' })
+            setClassicFinished(true)
+          } else {
+            // Clear all guesses for the next round
+            const players = lobbyRoomData.players || []
+            const clearedPlayers = players.map(p => ({ ...p, guess: null }))
+            await updateRoomState(lobbyRoomCode, { 
+              status: 'playing', 
+              current_round: next, 
+              players: clearedPlayers 
+            })
+          }
+        } catch (error) {
+          console.error("Chyba posunu kola:", error)
+        }
+      }, 3000)
     }
-  }, [startGame])
-
-  // ── Anime selection from modal ─────────────────────────────────────────────
-  const handleAnimeSelect = useCallback(async (animeId) => {
-    setShowAnimeModal(false)
-    const random = animeId === 'random'
-    const id = random ? null : animeId
-    setIsRandom(random)
-    setSelectedAnimeId(id)
-
-    if (animeModalAction === 'classic') {
-      startGame('classic', id)
-    } else {
-      const err = await handleCreateRoom(id)
-      if (err) alert(err)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [frames, animeModalAction])
+    
+    return () => clearTimeout(timer)
+  }, [lobbyRoomData?.status, playerRole, gameMode, currentRound, lobbyRoomCode, lobbyRoomData?.total_rounds, lobbyRoomData?.players])
 
   // ── Start / restart a game session ────────────────────────────────────────
   const startGame = useCallback((mode, animeId, presetFrames) => {
@@ -265,14 +309,15 @@ export default function App() {
 
     setGameMode(mode)
     setSelectedAnimeId(animeId)
-    setMultiplayerFrames(pFrames)
+    const deobfuscatedPFrames = pFrames.map(deobfuscateFrame)
+    setMultiplayerFrames(deobfuscatedPFrames)
     
     let firstFrame = null;
     if (mode === 'daily') {
       const today = new Date().toISOString().split('T')[0]
       firstFrame = getDailyFrame(frames, today)
     } else {
-      firstFrame = pFrames.length > 0 ? pFrames[0] : pickRandomFrame(frames, animeId)
+      firstFrame = deobfuscatedPFrames.length > 0 ? deobfuscatedPFrames[0] : pickRandomFrame(frames, animeId)
     }
 
     if (!firstFrame) {
@@ -293,10 +338,42 @@ export default function App() {
     setCurrentScreen('game')
   }, [frames])
 
+  // ── Mode button click on Homepage ─────────────────────────────────────────
+  const handleModeClick = useCallback((modeId) => {
+    const action = () => {
+      if (modeId === 'daily') {
+        startGame('daily')
+      } else if (modeId === 'classic' || modeId === 'multiplayer') {
+        setAnimeModalAction(modeId)
+        setShowAnimeModal(true)
+      }
+    }
+    // If no nickname → show modal, store action to run after save; otherwise run now
+    if (!requireNickname(action)) return
+    action()
+  }, [startGame, requireNickname])
+
+  // ── Anime selection from modal ─────────────────────────────────────────────
+  const handleAnimeSelect = useCallback(async (animeId, options) => {
+    setShowAnimeModal(false)
+    const random = animeId === 'random'
+    const id = random ? null : animeId
+    setIsRandom(random)
+    setSelectedAnimeId(id)
+
+    if (animeModalAction === 'classic') {
+      startGame('classic', id)
+    } else {
+      const err = await handleCreateRoom(id, options)
+      if (err) alert(err)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frames, animeModalAction, startGame])
+
   // ── Advance to next round locally ──────────────────────────────────────────
   const nextRoundLocal = useCallback(() => {
     const next = currentRound + 1
-    const maxRounds = gameMode === 'multiplayer' ? MULTIPLAYER_ROUNDS : CLASSIC_ROUNDS
+    const maxRounds = gameMode === 'multiplayer' ? (lobbyRoomData?.total_rounds || 4) : CLASSIC_ROUNDS
 
     if (next > maxRounds || gameMode === 'daily') { setClassicFinished(true); return }
     setCurrentRound(next)
@@ -319,17 +396,21 @@ export default function App() {
     if (gameMode === 'multiplayer') {
       if (playerRole === 'host') {
         const next = currentRound + 1
-        if (next > MULTIPLAYER_ROUNDS) {
+        const maxR = lobbyRoomData?.total_rounds || 4
+        if (next > maxR) {
           updateRoomState(lobbyRoomCode, { status: 'finished' })
           setClassicFinished(true)
         } else {
-          updateRoomState(lobbyRoomCode, { current_round: next, player1_guess: null, player2_guess: null })
+          // Clear all guesses for the next round
+          const players = lobbyRoomData?.players || []
+          const clearedPlayers = players.map(p => ({ ...p, guess: null }))
+          updateRoomState(lobbyRoomCode, { status: 'playing', current_round: next, players: clearedPlayers })
         }
       }
     } else {
       nextRoundLocal()
     }
-  }, [gameMode, currentRound, lobbyRoomCode, playerRole, nextRoundLocal])
+  }, [gameMode, currentRound, lobbyRoomCode, playerRole, lobbyRoomData, nextRoundLocal])
 
 
   // ── Handle guess ──────────────────────────────────────────────────────────
@@ -364,9 +445,9 @@ export default function App() {
   }, [roundOver, gameOver, gameMode, lobbyRoomCode, playerRole])
 
   // ── Multiplayer: create room ───────────────────────────────────────────────
-  const handleCreateRoom = useCallback(async (animeId) => {
+  const handleCreateRoom = useCallback(async (animeId, options) => {
     setIsJoiningRoom(true)
-    const { data, error: err } = await createRoom(frames, animeId)
+    const { data, role, error: err } = await createRoom(frames, animeId, options, nickname)
     setIsJoiningRoom(false)
     
     if (err || !data) return typeof err === 'string' ? err : 'Nepodařilo se vytvořit místnost. Zkontroluj Supabase konfiguraci.'
@@ -375,18 +456,24 @@ export default function App() {
     
     setLobbyRoomCode(data.code)
     setLobbyRoomData(data)
-    setPlayerRole('host')
+    setPlayerRole(role)
     setCurrentScreen('lobby')
     
     console.log('[1v1] Current state updated to: lobby')
     
     return null
-  }, [frames])
+  }, [frames, nickname])
 
   // ── Multiplayer: join room ─────────────────────────────────────────────────
   const handleJoinRoom = useCallback(async (roomCode) => {
+    // Gate behind nickname — auto-join from URL might run before nickname is set
+    if (!nickname) {
+      setPendingAction(() => () => handleJoinRoom(roomCode))
+      setShowNicknameModal(true)
+      return 'Nejprve zadej přezdívku.'
+    }
     setIsJoiningRoom(true)
-    const { data, error: err } = await joinRoom(roomCode)
+    const { data, role, error: err } = await joinRoom(roomCode, nickname)
     setIsJoiningRoom(false)
     
     if (err || !data) {
@@ -399,7 +486,7 @@ export default function App() {
     setSelectedAnimeId(isR ? null : data.anime_id)
     setLobbyRoomCode(data.code)
     setLobbyRoomData(data)
-    setPlayerRole('guest')
+    setPlayerRole(role)
     
     if (data.status === 'playing' && data.current_round >= 1) {
       startGame('multiplayer', isR ? null : data.anime_id, data.frames || [])
@@ -408,7 +495,7 @@ export default function App() {
     }
     return null
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [startGame, nickname])
 
   // ── Multiplayer: game started from lobby (host triggers) ──────────────────
   const handleMultiplayerGameStart = useCallback((roomData) => {
@@ -418,17 +505,42 @@ export default function App() {
     startGame('multiplayer', isR ? null : roomData.anime_id, roomData.frames || [])
   }, [startGame])
 
-  // ── Effect: Host auto-starts game when guest joins ────────────────────────
+  // ── Effect: Auto-starts game when room is playing ────────────────────────
   useEffect(() => {
     if (
       currentScreen === 'lobby' &&
-      playerRole === 'host' &&
       lobbyRoomData?.status === 'playing' &&
       lobbyRoomData?.current_round >= 1
     ) {
       handleMultiplayerGameStart(lobbyRoomData)
     }
   }, [currentScreen, playerRole, lobbyRoomData, handleMultiplayerGameStart])
+
+  const handleHostStartGame = useCallback(() => {
+    if (playerRole === 'host' && lobbyRoomCode) {
+      updateRoomState(lobbyRoomCode, { status: 'playing', current_round: 1 })
+    }
+  }, [playerRole, lobbyRoomCode])
+
+  const handleUpdateRoomSettings = useCallback((newSettings) => {
+    if (playerRole !== 'host' || !lobbyRoomCode || !lobbyRoomData) return
+    
+    const updates = { ...newSettings }
+    
+    if (newSettings.anime_id !== undefined || newSettings.total_rounds !== undefined) {
+       const newAnimeId = newSettings.anime_id !== undefined ? newSettings.anime_id : lobbyRoomData.anime_id;
+       const newRounds = newSettings.total_rounds !== undefined ? newSettings.total_rounds : lobbyRoomData.total_rounds;
+       
+       const isRandom = newAnimeId === 'random' || newAnimeId === null
+       const animeFrames = isRandom ? frames : frames.filter(f => f.animeId === newAnimeId)
+       if (animeFrames.length > 0) {
+         const shuffled = [...animeFrames].sort(() => Math.random() - 0.5)
+         updates.frames = shuffled.slice(0, Math.min(newRounds, shuffled.length)).map(obfuscateFrame)
+       }
+    }
+    
+    updateRoomState(lobbyRoomCode, updates)
+  }, [playerRole, lobbyRoomCode, lobbyRoomData, frames])
 
   // ════════════════════════════════════════════════════════════════════════════
   // RENDER
@@ -473,23 +585,60 @@ export default function App() {
     )
   }
 
+  // Admin mode — early return, nic jineho se nerenderuje
+  if (isAdminMode) {
+    return (
+      <AdminScreen
+        animes={animes}
+        onBack={() => {
+          setIsAdminMode(false)
+          const url = new URL(window.location)
+          url.searchParams.delete('admin')
+          window.history.replaceState({}, '', url)
+        }}
+        onFramesChanged={() => {
+          fetchFrames()
+            .then(data => { setFrames(data); setAnimes(getUniqueAnimes(data)) })
+            .catch(console.error)
+        }}
+      />
+    )
+  }
+
   return (
     <div className="min-h-screen bg-[#0b0f17] font-sans">
 
       {/* Fixed top banner (Game screen only) */}
       {currentScreen === 'game' && (
-        <TopBanner currentScreen={currentScreen} totalScore={myScore} gameMode={gameMode} currentRound={currentRound} onGoHome={goHome} opponentScore={opponentScore} />
+        <TopBanner currentScreen={currentScreen} totalScore={myScore} gameMode={gameMode} currentRound={currentRound} onGoHome={goHome} opponentScore={opponentScore} lobbyRoomData={lobbyRoomData} />
       )}
+
 
       <div className={currentScreen === 'game' ? 'pt-14' : ''}>
 
         {/* ══ Homepage ══════════════════════════════════════════════════════ */}
         {currentScreen === 'home' && (
           <>
-            <Homepage onStart={handleModeClick} onCreate={() => handleModeClick('multiplayer')} onJoin={handleJoinRoom} onRequestWiki={() => setShowWiki(true)} />
+            <Homepage
+              onStart={handleModeClick}
+              onCreate={() => handleModeClick('multiplayer')}
+              onJoin={handleJoinRoom}
+              onRequestWiki={() => setShowWiki(true)}
+              nickname={nickname}
+              onRequestChangeNickname={() => setShowNicknameModal(true)}
+            />
             {showAnimeModal && (
               <AnimeSelectModal animes={animes} onSelect={handleAnimeSelect} onClose={() => setShowAnimeModal(false)} />
             )}
+            <AnimatePresence>
+              {showNicknameModal && (
+                <NicknameModal
+                  onSave={handleSaveNickname}
+                  onCancel={() => { setShowNicknameModal(false); setPendingAction(null) }}
+                  allowCancel={!!nickname}
+                />
+              )}
+            </AnimatePresence>
           </>
         )}
 
@@ -499,14 +648,23 @@ export default function App() {
             roomCode={lobbyRoomCode}
             role={playerRole}
             roomData={lobbyRoomData}
-            onGameStart={handleMultiplayerGameStart}
+            onStartEarly={handleHostStartGame}
             onCancel={goHome}
+            animes={animes}
+            onUpdateSettings={handleUpdateRoomSettings}
           />
         )}
 
         {/* ══ Game screen ═══════════════════════════════════════════════════ */}
         {currentScreen === 'game' && (
           <div className="relative">
+            {lobbyRoomData?.status === 'round_results' && gameMode === 'multiplayer' && (
+              <RoundResultsScreen 
+                players={lobbyRoomData.players}
+                answer={answer}
+                isRandom={isRandom}
+              />
+            )}
             {/* Ambient glows */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none" aria-hidden>
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-indigo-900/20 rounded-full blur-[120px]" />
@@ -523,7 +681,7 @@ export default function App() {
                   >
                     <p className="text-4xl mb-3">🏆</p>
                     <p className="text-2xl font-black text-white mb-1">Hra dokončena!</p>
-                    <p className="text-white/45 text-sm mb-4">{gameMode === 'multiplayer' ? MULTIPLAYER_ROUNDS : CLASSIC_ROUNDS} kol odehráno</p>
+                    <p className="text-white/45 text-sm mb-4">{gameMode === 'multiplayer' ? (lobbyRoomData?.total_rounds || 4) : CLASSIC_ROUNDS} kol odehráno</p>
                     <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-400 tabular-nums mb-1">{myScore}</p>
                     <p className="text-white/30 text-sm mb-6">{gameMode === 'multiplayer' ? 'tvých bodů' : 'celkových bodů'}</p>
                     
@@ -536,12 +694,12 @@ export default function App() {
                        </div>
                     )}
 
-                    <div className="flex gap-3 justify-center">
+                    <div className="flex flex-col items-center justify-center w-full max-w-xs mx-auto gap-4 mt-2">
                       <motion.button onClick={() => { setShowAnimeModal(true); setCurrentScreen('home') }}
-                        whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="btn-primary flex items-center gap-2">
+                        whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="btn-primary flex items-center justify-center gap-2">
                         <Sparkles className="w-4 h-4" /> Hrát znovu
                       </motion.button>
-                      <motion.button onClick={goHome} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="btn-ghost">Menu</motion.button>
+                      <motion.button onClick={goHome} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="btn-ghost w-full">Zpět do menu</motion.button>
                     </div>
                   </motion.div>
                 )}
@@ -567,7 +725,7 @@ export default function App() {
                           </p>
                           <p className="text-white/50 text-xs mt-0.5 truncate">
                             <span className="font-semibold text-white/80">{answer?.title}</span>
-                            {' · '}Part {answer?.part} · Ep.&nbsp;{answer?.episode}
+                            {' · '}Part {answer?.part} · Ep.&nbsp;{answer?.episode}{answer?.episode_name ? ` – ${answer?.episode_name}` : ''}
                           </p>
                         </div>
                       </div>
@@ -629,9 +787,9 @@ export default function App() {
                   ) : gameMode === 'daily' ? (
                      <p className="text-sm text-white/40">Zítra tě čeká nová výzva!</p>
                   ) : (
-                    currentRound < (gameMode === 'multiplayer' ? MULTIPLAYER_ROUNDS : CLASSIC_ROUNDS)
-                      ? <motion.button onClick={handleNextRoundButton} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="btn-primary flex items-center gap-2" id="btn-next-round">Další kolo <ChevronRight className="w-4 h-4" /></motion.button>
-                      : <motion.button onClick={handleNextRoundButton} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="btn-primary flex items-center gap-2"><Trophy className="w-4 h-4" /> Zobrazit výsledky</motion.button>
+                    currentRound < (gameMode === 'multiplayer' ? (lobbyRoomData?.total_rounds || 4) : CLASSIC_ROUNDS)
+                      ? <motion.button onClick={handleNextRoundButton} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="btn-primary flex items-center justify-center text-center w-full gap-2" id="btn-next-round">Další kolo <ChevronRight className="w-4 h-4" /></motion.button>
+                      : <motion.button onClick={handleNextRoundButton} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="btn-primary flex items-center justify-center text-center w-full gap-2"><Trophy className="w-4 h-4" /> Zobrazit výsledky</motion.button>
                   )}
                 </motion.div>
               )}
@@ -639,7 +797,7 @@ export default function App() {
               {/* Guess history (Classic) */}
               {!gameOver && guesses.length > 0 && gameMode === 'classic' && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.12 }}>
-                  <GuessHistory guesses={guesses} />
+                  <GuessHistory guesses={guesses} animes={animes} />
                 </motion.div>
               )}
             </div>

@@ -62,7 +62,7 @@ export default function NicknameModal({ onSave, onCancel, allowCancel }) {
               onChange={e => { setNickname(e.target.value); setError('') }}
               onKeyDown={e => e.key === 'Enter' && handleSave()}
               placeholder="Tvoje přezdívka..."
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all text-center text-lg"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-colors transition-opacity transition-transform text-center text-lg"
               autoFocus
               maxLength={15}
             />

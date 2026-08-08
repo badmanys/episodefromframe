@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+  /* Strict 60FPS Optimization: Force GPU acceleration and ban slow properties from general transitions */
+  .transition, .transition-colors transition-opacity transition-transform {
+    transition-property: transform, opacity, color, background-color, border-color, text-decoration-color, fill, stroke !important;
+    will-change: transform, opacity !important;
+    transform: translateZ(0);
+  }
+  
+  /* Add GPU acceleration to specific transition classes too */
+  .transition-transform, .transition-opacity, .transition-colors {
+    will-change: transform, opacity !important;
+    transform: translateZ(0);
+  }
+}
+
 @layer base {
   *, *::before, *::after {
     box-sizing: border-box;
@@ -94,13 +109,13 @@
   }
 
   .glass-card {
-    @apply backdrop-blur-xl bg-black/60 border border-white/10 rounded-2xl shadow-2xl;
+    @apply bg-[#0d0f17]/95 border border-white/10 rounded-2xl shadow-2xl;
   }
 
   .glass-input {
     @apply w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30
            focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50
-           transition-all duration-200;
+           transition-colors transition-opacity transition-transform duration-200;
   }
 
   .btn-primary {
