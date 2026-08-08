@@ -48,14 +48,20 @@ export async function joinRoom(roomCode) {
 
 export function subscribeToRoom(roomCode, callback) {
   if (!supabase) { console.warn('[Multiplayer] Supabase not configured'); return null }
-  const channel = supabase
-    .channel(`room:${roomCode}`)
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `code=eq.${roomCode.toUpperCase()}` }, (payload) => { if (payload.new) callback(payload.new) })
-    .subscribe((status) => {
-      if (status === 'SUBSCRIBED') console.log(`[Multiplayer] Subscribed to room ${roomCode}`)
-      if (status === 'CHANNEL_ERROR') console.error(`[Multiplayer] Realtime error for room ${roomCode}`)
-    })
-  return channel
+  if (!roomCode) return null
+  try {
+    const channel = supabase
+      .channel(`room:${roomCode}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `code=eq.${roomCode.toUpperCase()}` }, (payload) => { if (payload.new) callback(payload.new) })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') console.log(`[Multiplayer] Subscribed to room ${roomCode}`)
+        if (status === 'CHANNEL_ERROR') console.error(`[Multiplayer] Realtime error for room ${roomCode}`)
+      })
+    return channel
+  } catch (err) {
+    console.error('[Multiplayer] subscribeToRoom exception:', err)
+    return null
+  }
 }
 
 export async function updateRoomState(roomCode, update) {

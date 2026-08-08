@@ -10,7 +10,7 @@ import {
   pickRandomFrame,
   compareGuess,
 } from './lib/frames.js'
-import { createRoom, joinRoom, updateRoomState, submitGuess, evaluateMultiplayerRound, subscribeToRoom } from './lib/multiplayer.js'
+import { createRoom, joinRoom, updateRoomState, submitGuess, evaluateMultiplayerRound, subscribeToRoom, fetchRoom } from './lib/multiplayer.js'
 import Homepage         from './components/Homepage.jsx'
 import AnimeSelectModal from './components/AnimeSelectModal.jsx'
 import LobbyScreen      from './components/LobbyScreen.jsx'
@@ -157,13 +157,35 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, frames, currentScreen, lobbyRoomCode])
 
-  // ── Realtime Multiplayer Subscription ──────────────────────────────────────
+  // ── Realtime Multiplayer Subscription & Fallback Polling ─────────────────
   useEffect(() => {
     if (!lobbyRoomCode) return
-    const channel = subscribeToRoom(lobbyRoomCode, (updatedRoom) => {
-      setLobbyRoomData(updatedRoom)
-    })
-    return () => { if (channel) supabase.removeChannel(channel) }
+    let channel = null
+    try {
+      channel = subscribeToRoom(lobbyRoomCode, (updatedRoom) => {
+        setLobbyRoomData(updatedRoom)
+      })
+    } catch (err) {
+      console.error('[Multiplayer] Failed to subscribe:', err)
+    }
+
+    // Fallback polling v případě selhání Realtime spojení
+    const interval = setInterval(async () => {
+      // Polling běží jen pokud jsme v čekárně (Lobby)
+      if (lobbyRoomCode) {
+        const { data } = await fetchRoom(lobbyRoomCode)
+        if (data && data.status === 'playing') {
+          setLobbyRoomData(data)
+        }
+      }
+    }, 2500)
+
+    return () => {
+      if (channel) {
+        try { supabase.removeChannel(channel) } catch (err) { console.error('[Multiplayer] removeChannel error:', err) }
+      }
+      clearInterval(interval)
+    }
   }, [lobbyRoomCode])
 
   // ── Effect: Host auto-starts game when guest joins ────────────────────────

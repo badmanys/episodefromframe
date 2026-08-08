@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 
@@ -6,7 +6,9 @@ export default function FrameViewer({ frame, revealed = false }) {
   const [imageState, setImageState] = useState('loading') // 'loading' | 'loaded' | 'error'
 
   // Reset state when frame changes
-  const handleNewFrame = () => setImageState('loading')
+  useEffect(() => {
+    setImageState('loading')
+  }, [frame?.id])
 
   return (
     <div className="glass-card overflow-hidden">
