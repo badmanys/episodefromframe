@@ -167,6 +167,57 @@ export default memo(function LobbyScreen({ roomCode, roomData, role, onCancel, o
                     </select>
                   </div>
                 </div>
+                </div>
+                
+                {/* Filtr sérií (pouze pro Mix mód) */}
+                {(!roomData?.anime_id || roomData?.anime_id === 'random') && (
+                  <div className="mt-4">
+                    <label className="text-white/60 text-xs font-semibold mb-1.5 flex items-center justify-between">
+                      <span>Filtrovat Anime série</span>
+                      <span className="text-[10px] text-white/40 font-normal">{(roomData?.selected_series || []).length} vybráno (prázdné = všechny)</span>
+                    </label>
+                    <div className="max-h-36 overflow-y-auto bg-black/40 border border-white/10 rounded-lg p-2 space-y-1 custom-scrollbar">
+                      {animes.map(a => {
+                        const isChecked = (roomData?.selected_series || []).includes(a.id);
+                        return (
+                          <label key={a.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-white/5 rounded cursor-pointer transition-colors">
+                            <input 
+                              type="checkbox" 
+                              checked={isChecked}
+                              onChange={(e) => {
+                                const current = roomData?.selected_series || [];
+                                let next;
+                                if (e.target.checked) next = [...current, a.id];
+                                else next = current.filter(id => id !== a.id);
+                                onUpdateSettings && onUpdateSettings({ selected_series: next });
+                              }}
+                              className="accent-red-500 w-4 h-4 rounded bg-black/50 border-white/20"
+                            />
+                            <span className="text-sm text-white/90">{a.title}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Informace pro hosty o vybraných sériích */}
+          {!isHost && (!roomData?.anime_id || roomData?.anime_id === 'random') && (roomData?.selected_series?.length > 0) && (
+            <div className="border-t border-white/10 pt-4 pb-2">
+              <span className="text-white/40 text-[10px] uppercase tracking-widest font-black block mb-2 px-1">Aktivní filtr sérií</span>
+              <div className="flex flex-wrap gap-1.5 px-1">
+                {roomData.selected_series.map(seriesId => {
+                  const series = animes.find(a => a.id === seriesId)
+                  if (!series) return null
+                  return (
+                    <span key={series.id} className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-red-950/40 text-red-400 border border-red-900/50 rounded">
+                      {series.title}
+                    </span>
+                  )
+                })}
               </div>
             </div>
           )}

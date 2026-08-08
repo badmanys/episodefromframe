@@ -515,12 +515,21 @@ export default function App() {
     
     const updates = { ...newSettings }
     
-    if (newSettings.anime_id !== undefined || newSettings.total_rounds !== undefined) {
+    if (newSettings.anime_id !== undefined || newSettings.total_rounds !== undefined || newSettings.selected_series !== undefined) {
        const newAnimeId = newSettings.anime_id !== undefined ? newSettings.anime_id : lobbyRoomData.anime_id;
        const newRounds = newSettings.total_rounds !== undefined ? newSettings.total_rounds : lobbyRoomData.total_rounds;
+       const newSelectedSeries = newSettings.selected_series !== undefined ? newSettings.selected_series : lobbyRoomData.selected_series || [];
        
        const isRandom = newAnimeId === 'random' || newAnimeId === null
-       const animeFrames = isRandom ? frames : frames.filter(f => f.animeId === newAnimeId)
+       
+       // Filtrace framů
+       let animeFrames = isRandom ? frames : frames.filter(f => f.animeId === newAnimeId)
+       
+       // Pokud je to mix mód a máme aktivní filtr na specifické série
+       if (isRandom && newSelectedSeries.length > 0) {
+         animeFrames = animeFrames.filter(f => newSelectedSeries.includes(f.animeId))
+       }
+
        if (animeFrames.length > 0) {
          const shuffled = [...animeFrames].sort(() => Math.random() - 0.5)
          updates.frames = shuffled.slice(0, Math.min(newRounds, shuffled.length)).map(obfuscateFrame)

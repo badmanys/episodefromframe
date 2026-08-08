@@ -33,6 +33,7 @@ export async function createRoom(frames, animeId, settings = {}, nickname) {
       max_players: maxPlayers,
       total_rounds: rounds,
       time_limit: timeLimit,
+      selected_series: [],
       players: [{ role: 'host', name: nickname, score: 0, guess: null }],
       current_round: 0, 
       status: 'waiting'
