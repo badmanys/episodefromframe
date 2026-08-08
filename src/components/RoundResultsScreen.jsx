@@ -55,31 +55,38 @@ export default memo(function RoundResultsScreen({ players, answer, isRandom, isH
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: idx * 0.1 }}
-                  className={`flex items-center gap-4 p-3 rounded-xl border ${isWinner ? 'bg-indigo-900/30 border-indigo-500/30' : 'bg-black/40 border-white/5'}`}
+                  className={`flex items-center justify-between gap-4 p-3 rounded-xl border ${isWinner ? 'bg-indigo-900/30 border-indigo-500/30' : 'bg-black/40 border-white/5'}`}
                 >
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${isWinner ? 'bg-indigo-500 text-white shadow-[0_0_10px_rgba(99,102,241,0.5)]' : 'bg-white/10 text-white/40'}`}>
-                    {idx + 1}.
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between w-full">
+                  {/* LEVÁ STRANA: Pořadí a Jméno */}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${isWinner ? 'bg-indigo-500 text-white shadow-[0_0_10px_rgba(99,102,241,0.5)]' : 'bg-white/10 text-white/40'}`}>
+                      {idx + 1}.
+                    </div>
+                    
+                    <div className="flex flex-col min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-white truncate">{p.name}</span>
                         {isWinner && <Trophy className="w-3.5 h-3.5 text-yellow-400" />}
                       </div>
-                      <span className="font-black text-yellow-400 ml-3">{p.score || 0} b.</span>
+                      {p.guess && !surrendered && (
+                        <div className="text-[10px] text-white/40 truncate mt-0.5">
+                          Tip: Ep {p.guess.episode}
+                        </div>
+                      )}
                     </div>
-                    {p.guess && !surrendered && (
-                      <div className="text-[10px] text-white/40 truncate mt-0.5">
-                        Tip: Ep {p.guess.episode}
-                      </div>
-                    )}
                   </div>
                   
-                  <div className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${statusColor} flex items-center gap-1`}>
-                    {isValid && isWinner ? <CheckCircle2 className="w-3 h-3" /> : null}
-                    {!isValid && !surrendered ? <XCircle className="w-3 h-3" /> : null}
-                    {statusText}
+                  {/* PRAVÁ STRANA: Skóre a Status Tipu */}
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <div className="px-3 py-1 text-sm font-bold text-yellow-400 border border-yellow-500/30 bg-yellow-500/10 rounded-md whitespace-nowrap shadow-[0_0_10px_rgba(234,179,8,0.15)]">
+                      {p.score || 0} {(p.score || 0) === 1 ? 'bod' : ((p.score || 0) > 1 && (p.score || 0) < 5) ? 'body' : 'bodů'}
+                    </div>
+
+                    <div className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${statusColor} flex items-center gap-1`}>
+                      {isValid && isWinner ? <CheckCircle2 className="w-3 h-3" /> : null}
+                      {!isValid && !surrendered ? <XCircle className="w-3 h-3" /> : null}
+                      {statusText}
+                    </div>
                   </div>
                 </motion.div>
               )
