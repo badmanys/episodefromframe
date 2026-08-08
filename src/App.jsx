@@ -13,7 +13,7 @@ import {
 import { createRoom, joinRoom, updateRoomState, submitGuess, evaluateMultiplayerRound, subscribeToRoom } from './lib/multiplayer.js'
 import Homepage         from './components/Homepage.jsx'
 import AnimeSelectModal from './components/AnimeSelectModal.jsx'
-import Lobby            from './components/Lobby.jsx'
+import LobbyScreen      from './components/LobbyScreen.jsx'
 import FrameViewer      from './components/FrameViewer.jsx'
 import GuessInput       from './components/GuessInput.jsx'
 import GuessHistory     from './components/GuessHistory.jsx'
@@ -334,10 +334,16 @@ export default function App() {
     setIsJoiningRoom(false)
     
     if (err || !data) return typeof err === 'string' ? err : 'Nepodařilo se vytvořit místnost. Zkontroluj Supabase konfiguraci.'
+    
+    console.log('[1v1] Room created:', data)
+    
     setLobbyRoomCode(data.code)
     setLobbyRoomData(data)
     setPlayerRole('host')
     setCurrentScreen('lobby')
+    
+    console.log('[1v1] Current state updated to: lobby')
+    
     return null
   }, [frames])
 
@@ -441,7 +447,7 @@ export default function App() {
 
         {/* ══ Lobby ═════════════════════════════════════════════════════════ */}
         {currentScreen === 'lobby' && (
-          <Lobby
+          <LobbyScreen
             roomCode={lobbyRoomCode}
             role={playerRole}
             roomData={lobbyRoomData}
