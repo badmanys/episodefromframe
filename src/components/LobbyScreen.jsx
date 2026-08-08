@@ -160,17 +160,7 @@ export default memo(function LobbyScreen({ roomCode, roomData, role, onCancel, o
             <div className="border-t border-white/10 pt-6 mb-6">
               <span className="text-white/40 text-[10px] uppercase tracking-widest font-black block mb-4 px-1">Nastavení místnosti</span>
               <div className="space-y-4 px-1">
-                <div>
-                  <label className="text-white/60 text-xs font-semibold mb-1.5 block">Anime Série</label>
-                  <select 
-                    value={roomData?.anime_id || 'random'}
-                    onChange={(e) => onUpdateSettings && onUpdateSettings({ anime_id: e.target.value })}
-                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500/50"
-                  >
-                    <option value="random">Náhodný mix všech</option>
-                    {animes.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
-                  </select>
-                </div>
+
                 <div className="flex gap-4">
                   <div className="flex-1">
                     <label className="text-white/60 text-xs font-semibold mb-1.5 block">Počet kol</label>
@@ -198,90 +188,37 @@ export default memo(function LobbyScreen({ roomCode, roomData, role, onCancel, o
                   </div>
                 </div>
                 
-                {/* Filtr sérií (pouze pro Mix mód) */}
-                {(!roomData?.anime_id || roomData?.anime_id === 'random') && (
-                  <div className="mt-6 border-t border-white/10 pt-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <label className="text-white/60 text-xs font-semibold">Filtrovat Anime série</label>
-                      <span className="text-[10px] text-white/40 font-normal">{(roomData?.selected_series || []).length} vybráno</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 mb-3">
-                      {animes.map((anime, i) => {
-                        const isSelected = (roomData?.selected_series || []).includes(anime.id)
-                        const accent = getAccent(anime.id)
-                        const Icon = accent.icon
-
-                        return (
-                          <motion.button
-                            key={anime.id}
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.04 + i * 0.06, duration: 0.3 }}
-                            whileHover={{ scale: 1.03, y: -2 }}
-                            whileTap={{ scale: 0.97 }}
-                            onClick={() => { 
-                              playClickSound(); 
+                {/* Filtr sérií */}
+                <div className="mt-6 border-t border-white/10 pt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="text-white/60 text-xs font-semibold">Vybrat Anime série</label>
+                    <span className="text-[10px] text-white/40 font-normal">
+                      {(roomData?.selected_series || []).length === 0 ? 'Všechna anime' : `${(roomData?.selected_series || []).length} vybráno`}
+                    </span>
+                  </div>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                    {animes.map(a => {
+                      const isChecked = (roomData?.selected_series || []).includes(a.id);
+                      return (
+                        <label key={a.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-red-950/30 border border-red-500/30' : 'bg-black/40 border border-white/5 hover:border-white/20'}`}>
+                          <input 
+                            type="checkbox" 
+                            checked={isChecked}
+                            onChange={(e) => {
                               const current = roomData?.selected_series || [];
                               let next;
-                              if (!isSelected) next = [...current, anime.id];
-                              else next = current.filter(id => id !== anime.id);
+                              if (e.target.checked) next = [...current, a.id];
+                              else next = current.filter(id => id !== a.id);
                               onUpdateSettings && onUpdateSettings({ selected_series: next });
                             }}
-                            className={`relative rounded-xl border p-3.5 text-left group transition-colors duration-200 ${isSelected ? 'bg-red-950/40 border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.3)]' : 'bg-white/[0.04] border-white/8 hover:border-white/20'}`}
-                            style={{ willChange: 'transform' }}
-                          >
-                            <div 
-                              className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none rounded-xl"
-                              style={{ boxShadow: !isSelected ? `0 4px 20px ${accent.shadow}` : 'none', willChange: 'opacity' }} 
-                            />
-                            <div className="w-8 h-8 rounded-lg mb-2 flex items-center justify-center shadow-lg" style={{ background: `linear-gradient(135deg, ${accent.from}, ${accent.to})` }}>
-                              <Icon className="w-4 h-4 text-white" strokeWidth={2} />
-                            </div>
-                            <p className={`font-bold text-sm leading-tight transition-colors ${isSelected ? 'text-white' : 'text-white/80 group-hover:text-white'}`}>{anime.title}</p>
-                            
-                            {isSelected && (
-                              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute top-2.5 right-2.5">
-                                <CheckCircle2 className="w-5 h-5 text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]" />
-                              </motion.div>
-                            )}
-                            
-                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-                              style={{ background: `linear-gradient(135deg, ${accent.from}15, ${accent.to}08)` }} />
-                          </motion.button>
-                        )
-                      })}
-                    </div>
-
-                    <motion.button
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.28 }}
-                      whileHover={{ scale: 1.02, y: -1 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => { playClickSound(); onUpdateSettings && onUpdateSettings({ selected_series: [] }); }}
-                      className={`w-full relative rounded-xl border p-4 flex items-center gap-3 group transition-colors duration-200 ${(roomData?.selected_series || []).length === 0 ? 'bg-red-950/40 border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.3)]' : 'bg-red-950/20 border-red-500/30 hover:border-red-500/50'}`}
-                      style={{ willChange: 'transform' }}
-                    >
-                      <div 
-                        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none rounded-xl"
-                        style={{ boxShadow: (roomData?.selected_series || []).length !== 0 ? '0 4px 24px rgba(220,38,38,0.2)' : 'none', willChange: 'opacity' }} 
-                      />
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center shadow-lg bg-gradient-to-br from-red-600 to-orange-500">
-                        <Shuffle className="w-5 h-5 text-white" strokeWidth={2} />
-                      </div>
-                      <div className="text-left flex-1">
-                        <p className={`font-black leading-tight transition-colors ${(roomData?.selected_series || []).length === 0 ? 'text-white' : 'text-white/90 group-hover:text-white'}`}>Náhodný Mix</p>
-                        <p className={`text-xs mt-0.5 transition-colors ${(roomData?.selected_series || []).length === 0 ? 'text-red-200' : 'text-red-200/50 group-hover:text-red-200/70'}`}>Všechna dostupná anime</p>
-                      </div>
-                      {(roomData?.selected_series || []).length === 0 && (
-                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute right-4">
-                          <CheckCircle2 className="w-5 h-5 text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]" />
-                        </motion.div>
-                      )}
-                    </motion.button>
+                            className="accent-red-500 w-4 h-4 rounded bg-black/50 border-white/20 cursor-pointer"
+                          />
+                          <span className={`text-sm font-bold ${isChecked ? 'text-white' : 'text-white/60'}`}>{a.title}</span>
+                        </label>
+                      )
+                    })}
                   </div>
-                )}
+                </div>
               </div>
             </div>
           )}
