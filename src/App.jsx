@@ -188,17 +188,6 @@ export default function App() {
     }
   }, [lobbyRoomCode])
 
-  // ── Effect: Host auto-starts game when guest joins ────────────────────────
-  useEffect(() => {
-    if (
-      currentScreen === 'lobby' &&
-      playerRole === 'host' &&
-      lobbyRoomData?.status === 'playing' &&
-      lobbyRoomData?.current_round >= 1
-    ) {
-      handleMultiplayerGameStart(lobbyRoomData)
-    }
-  }, [currentScreen, playerRole, lobbyRoomData, handleMultiplayerGameStart])
 
   // ── Effect: Game logic from room updates ──────────────────────────────────
   useEffect(() => {
@@ -415,6 +404,18 @@ export default function App() {
     setSelectedAnimeId(isR ? null : roomData.anime_id)
     startGame('multiplayer', isR ? null : roomData.anime_id, roomData.frames || [])
   }, [startGame])
+
+  // ── Effect: Host auto-starts game when guest joins ────────────────────────
+  useEffect(() => {
+    if (
+      currentScreen === 'lobby' &&
+      playerRole === 'host' &&
+      lobbyRoomData?.status === 'playing' &&
+      lobbyRoomData?.current_round >= 1
+    ) {
+      handleMultiplayerGameStart(lobbyRoomData)
+    }
+  }, [currentScreen, playerRole, lobbyRoomData, handleMultiplayerGameStart])
 
   // ════════════════════════════════════════════════════════════════════════════
   // RENDER
