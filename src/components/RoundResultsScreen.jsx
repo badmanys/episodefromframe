@@ -62,9 +62,12 @@ export default memo(function RoundResultsScreen({ players, answer, isRandom, isH
                   </div>
                   
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-white truncate">{p.name}</span>
-                      {isWinner && <Trophy className="w-3.5 h-3.5 text-yellow-400" />}
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-white truncate">{p.name}</span>
+                        {isWinner && <Trophy className="w-3.5 h-3.5 text-yellow-400" />}
+                      </div>
+                      <span className="font-black text-yellow-400 ml-3">{p.score || 0} b.</span>
                     </div>
                     {p.guess && !surrendered && (
                       <div className="text-[10px] text-white/40 truncate mt-0.5">

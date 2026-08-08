@@ -669,12 +669,30 @@ export default function App() {
                     <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-400 tabular-nums mb-1">{myScore}</p>
                     <p className="text-white/30 text-sm mb-6">{gameMode === 'multiplayer' ? 'tvých bodů' : 'celkových bodů'}</p>
                     
-                    {gameMode === 'multiplayer' && (
+                    {gameMode === 'multiplayer' && lobbyRoomData?.players && (
                        <div className="mb-6 p-4 rounded-xl bg-white/5 border border-white/10">
-                         <p className="text-sm text-white/50 mb-1">Výsledek</p>
-                         <p className={`text-xl font-bold ${myScore > opponentScore ? 'text-green-400' : myScore < opponentScore ? 'text-red-400' : 'text-yellow-400'}`}>
-                           {myScore > opponentScore ? 'Vyhrál jsi! 🎉' : myScore < opponentScore ? 'Prohrál jsi 💀' : 'Remíza 🤝'}
-                         </p>
+                         <p className="text-sm text-white/50 mb-4 uppercase tracking-widest">Konečné pořadí</p>
+                         <div className="flex flex-col gap-2">
+                           {[...lobbyRoomData.players]
+                             .sort((a, b) => (b.score || 0) - (a.score || 0))
+                             .map((p, idx) => {
+                               const isWinner = idx === 0 && (p.score || 0) > 0;
+                               return (
+                                 <div key={p.role} className={`flex items-center justify-between p-3 rounded-lg ${p.role === playerRole ? 'bg-indigo-500/20 border border-indigo-500/30' : 'bg-white/5'}`}>
+                                   <div className="flex items-center gap-3">
+                                     <span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold ${isWinner ? 'bg-yellow-400 text-yellow-900' : 'bg-white/10 text-white/60'}`}>
+                                       {idx + 1}
+                                     </span>
+                                     <span className="font-bold text-white flex items-center gap-1.5">
+                                       {p.name}
+                                       {isWinner && <span title="Vítěz">👑</span>}
+                                     </span>
+                                   </div>
+                                   <span className="font-black text-white">{p.score || 0} <span className="text-xs text-white/40 font-normal">b.</span></span>
+                                 </div>
+                               )
+                             })}
+                         </div>
                        </div>
                     )}
 

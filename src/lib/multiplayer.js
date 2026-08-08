@@ -185,13 +185,13 @@ export function evaluateMultiplayerRound(players, answer, isRandom) {
   for (const p of players) {
     if (p.guess) {
       const res = evaluatePlayer(p.guess)
-      const data = { role: p.role, name: p.name, ...res }
+      const data = { role: p.role, name: p.name, score: p.score || 0, ...res }
       playerResults.push(data)
       if (res.valid && res.episodeDiff < bestDiff) {
         bestDiff = res.episodeDiff
       }
     } else {
-      playerResults.push({ role: p.role, name: p.name, valid: false, episodeDiff: Infinity, guess: null })
+      playerResults.push({ role: p.role, name: p.name, score: p.score || 0, valid: false, episodeDiff: Infinity, guess: null })
     }
   }
 
