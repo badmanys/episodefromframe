@@ -266,43 +266,7 @@ export default function App() {
     }
   }, [lobbyRoomData, gameMode, answer, isRandom, playerRole, currentRound, lobbyRoomCode])
 
-  // Refs pro bezpečný přístup k nejnovějším datům uvnitř timeoutu bez nutnosti je dávat do deps
-  const timerDataRef = useRef({ currentRound, lobbyRoomCode, lobbyRoomData })
-  useEffect(() => {
-    timerDataRef.current = { currentRound, lobbyRoomCode, lobbyRoomData }
-  }, [currentRound, lobbyRoomCode, lobbyRoomData])
-
-  // ── Effect: Host automatically advances round after 3 seconds ─────────────
-  useEffect(() => {
-    let timer;
-    if (gameMode === 'multiplayer' && lobbyRoomData?.status === 'round_results' && playerRole === 'host') {
-      timer = setTimeout(async () => {
-        try {
-          const { currentRound: rRound, lobbyRoomCode: rCode, lobbyRoomData: rData } = timerDataRef.current
-          const next = rRound + 1
-          const maxR = rData?.total_rounds || 4
-          
-          if (next > maxR) {
-            await updateRoomState(rCode, { status: 'finished' })
-            setClassicFinished(true)
-          } else {
-            const players = rData?.players || []
-            const clearedPlayers = players.map(p => ({ ...p, guess: null }))
-            await updateRoomState(rCode, { 
-              status: 'playing', 
-              current_round: next, 
-              players: clearedPlayers 
-            })
-          }
-        } catch (error) {
-          console.error("Chyba posunu kola:", error)
-        }
-      }, 3000)
-    }
-    
-    return () => clearTimeout(timer)
-  // Záměrně sledujeme POUZE status a roli. Ostatní data čteme přes ref, aby se timer neresetoval!
-  }, [lobbyRoomData?.status, playerRole, gameMode])
+  // Timer byl přesunut do RoundResultsScreen jako mount-based timer pro maximální spolehlivost
 
   // ── Start / restart a game session ────────────────────────────────────────
   const startGame = useCallback((mode, animeId, presetFrames) => {
@@ -399,19 +363,23 @@ export default function App() {
     setMultiplayerResult(null)
   }, [currentRound, gameMode, frames, selectedAnimeId, multiplayerFrames])
 
-  const handleNextRoundButton = useCallback(() => {
+  const handleNextRoundButton = useCallback(async () => {
     if (gameMode === 'multiplayer') {
       if (playerRole === 'host') {
-        const next = currentRound + 1
-        const maxR = lobbyRoomData?.total_rounds || 4
-        if (next > maxR) {
-          updateRoomState(lobbyRoomCode, { status: 'finished' })
-          setClassicFinished(true)
-        } else {
-          // Clear all guesses for the next round
-          const players = lobbyRoomData?.players || []
-          const clearedPlayers = players.map(p => ({ ...p, guess: null }))
-          updateRoomState(lobbyRoomCode, { status: 'playing', current_round: next, players: clearedPlayers })
+        try {
+          const next = currentRound + 1
+          const maxR = lobbyRoomData?.total_rounds || 4
+          if (next > maxR) {
+            await updateRoomState(lobbyRoomCode, { status: 'finished' })
+            setClassicFinished(true)
+          } else {
+            // Clear all guesses for the next round
+            const players = lobbyRoomData?.players || []
+            const clearedPlayers = players.map(p => ({ ...p, guess: null }))
+            await updateRoomState(lobbyRoomCode, { status: 'playing', current_round: next, players: clearedPlayers })
+          }
+        } catch (error) {
+          console.error("Chyba posunu kola:", error)
         }
       }
     } else {
@@ -670,6 +638,8 @@ export default function App() {
                 players={lobbyRoomData.players}
                 answer={answer}
                 isRandom={isRandom}
+                isHost={playerRole === 'host'}
+                onNextRound={handleNextRoundButton}
               />
             )}
             {/* Ambient glows */}

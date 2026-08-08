@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { Trophy, Clock, XCircle, CheckCircle2 } from 'lucide-react'
 import { evaluateMultiplayerRound } from '../lib/multiplayer.js'
 
-export default memo(function RoundResultsScreen({ players, answer, isRandom }) {
+export default memo(function RoundResultsScreen({ players, answer, isRandom, isHost, onNextRound }) {
   const results = useMemo(() => {
     if (!players || !answer) return null
     return evaluateMultiplayerRound(players, answer, isRandom)
@@ -24,10 +24,6 @@ export default memo(function RoundResultsScreen({ players, answer, isRandom }) {
         <div className="relative z-10">
           <div className="text-center mb-6">
             <h2 className="text-2xl font-black text-white uppercase tracking-widest text-shadow-glow">Výsledky kola</h2>
-            <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-white/60 text-xs font-semibold">
-              <Clock className="w-3.5 h-3.5" />
-              <span>Další kolo za 3 sekundy...</span>
-            </div>
           </div>
 
           <div className="space-y-3">
@@ -90,6 +86,22 @@ export default memo(function RoundResultsScreen({ players, answer, isRandom }) {
           <div className="mt-6 p-3 rounded-xl bg-white/5 border border-white/10 text-center">
             <span className="text-[10px] text-white/40 uppercase tracking-widest block mb-1">Správná odpověď</span>
             <span className="text-sm text-white font-bold">{results.answer?.title || 'Neznámé'} · Část {results.answer?.part} · Ep. {results.answer?.episode}</span>
+          </div>
+
+          <div className="mt-6">
+            {isHost ? (
+              <button 
+                onClick={() => onNextRound && onNextRound()}
+                className="flex items-center justify-center w-full py-3 bg-red-600 hover:bg-red-500 transition-colors font-bold text-center text-white rounded-lg shadow-[0_0_15px_rgba(220,38,38,0.5)]"
+              >
+                Spustit další kolo &gt;
+              </button>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-white/50 py-2 animate-pulse">
+                <Loader2 className="w-5 h-5 mb-2 animate-spin" />
+                <span className="text-sm font-semibold">Čeká se, až zakladatel spustí další kolo...</span>
+              </div>
+            )}
           </div>
         </div>
       </motion.div>
